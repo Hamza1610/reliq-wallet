@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/ldk/ldk_models.dart';
+import '../../../data/push/push_models.dart';
 import '../../../data/storage/payment_history_service.dart';
 import '../../providers/payment_claim_provider.dart';
 import '../../providers/tts_provider.dart';
@@ -41,6 +42,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<List<ActivePaymentClaim>>(paymentClaimProvider, (prev, next) {
+      if (next.any((c) => c.isSucceeded)) {
+        _loadRecent();
+      }
+    });
+
     final walletState = ref.watch(walletProvider);
     final walletNotifier = ref.read(walletProvider.notifier);
     final activeClaims = ref.watch(paymentClaimProvider);

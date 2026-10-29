@@ -389,6 +389,16 @@ class WalletNotifier extends StateNotifier<WalletState> {
     await _storage.deleteWallet();
     state = WalletState.initial().copyWith(isLoading: false);
   }
+
+  /// Credits a simulated payment amount for demo evaluations
+  void creditSimulatedPayment(int sats) {
+    final current = state.balance;
+    final updated = WalletBalance(
+      lightningSats: current.lightningSats + sats,
+      onchainSats: current.onchainSats,
+    );
+    state = state.copyWith(balance: updated);
+  }
 }
 
 final StateNotifierProvider<WalletNotifier, WalletState> walletProvider =

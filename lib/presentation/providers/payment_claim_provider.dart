@@ -38,7 +38,11 @@ class PaymentClaimNotifier extends StateNotifier<List<ActivePaymentClaim>> {
 
     // When a claim succeeds, automatically refresh wallet balance and speak audio confirmation
     if (claim.isSucceeded) {
-      _ref.read(walletProvider.notifier).refreshBalance();
+      if (claim.paymentHash.startsWith('sim_')) {
+        _ref.read(walletProvider.notifier).creditSimulatedPayment(claim.amountSats);
+      } else {
+        _ref.read(walletProvider.notifier).refreshBalance();
+      }
       _ref.read(ttsServiceProvider).speakOfflineClaimed(claim.amountSats);
     }
   }

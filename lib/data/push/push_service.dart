@@ -126,11 +126,12 @@ class PushService {
 
     bool claimSuccess = false;
     try {
-      if (_lspClient != null && payload.paymentHash.isNotEmpty) {
+      final isSimulated = payload.paymentHash.startsWith('sim_');
+      if (_lspClient != null && payload.paymentHash.isNotEmpty && !isSimulated) {
         claimSuccess = await _lspClient!.claimInboundPayment(payload.paymentHash);
       } else {
-        // Fallback simulation roundtrip
-        await Future.delayed(const Duration(milliseconds: 600));
+        // Fallback simulation roundtrip (simulated demo or offline test)
+        await Future.delayed(const Duration(milliseconds: 700));
         claimSuccess = true;
       }
 
