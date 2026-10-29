@@ -12,21 +12,24 @@ By uniting embedded **LDK Node (Layer-2 Lightning)**, **BDK (Layer-1 On-Chain)**
 
 Reliq utilizes a hybrid architecture:
 
-```
-┌────────────────────────────────────────────────────────┐
-│               Flutter Frontend (Dart 3.x)              │
-│  - High-Contrast Tactile UI (Min 52dp Touch Targets)  │
-│  - Riverpod State Architecture                         │
-│  - Offline TTS Voice Prompts (English & Hausa)         │
-└───────────────────────────┬────────────────────────────┘
-                            │ Dart FFI (Pure C-ABI)
-┌───────────────────────────▼────────────────────────────┐
-│                  Native Engine (Rust)                  │
-│  - LDK Node (Embedded Lightning Network Layer-2)       │
-│  - BDK (Bitcoin Development Kit - On-Chain Layer-1)    │
-│  - BIP39 Mnemonic & Seed Cryptographic Derivations     │
-│  - Rapid Gossip Sync (RGS) & Esplora Network Client    │
-└────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Frontend ["Flutter Frontend (Dart 3.x)"]
+        direction TB
+        F1["High-Contrast Tactile UI (Min 52dp Touch Targets)"]
+        F2["Riverpod State Architecture"]
+        F3["Offline TTS Voice Prompts (English & Hausa)"]
+    end
+
+    subgraph Native ["Native Engine (Rust)"]
+        direction TB
+        N1["LDK Node (Embedded Lightning Network Layer-2)"]
+        N2["BDK (Bitcoin Development Kit - On-Chain Layer-1)"]
+        N3["BIP39 Mnemonic & Seed Cryptographic Derivations"]
+        N4["Rapid Gossip Sync (RGS) & Esplora Network Client"]
+    end
+
+    Frontend -->|"Dart FFI (Pure C-ABI)"| Native
 ```
 
 - **Frontend:** Flutter 3.x / Dart 3.x with Riverpod state management.
@@ -129,17 +132,6 @@ cd ..
   ```bash
   cd native && CARGO_TARGET_DIR=/home/maheer-wsl/.cargo-target/reliq cargo test
   ```
-
----
-
-## Implementation Roadmap
-
-| Phase | Description | Status |
-| :--- | :--- | :---: |
-| **Phase 1** | Foundation & Wallet Lifecycle (LDK/BDK FFI, Storage, Onboarding, Home) | **100% Completed** |
-| **Phase 2** | Receive & Basic Send (BOLT11 Invoices, QR Code, Payment Modal, Activity) | **100% Completed** |
-| **Phase 3** | Intermittent Connectivity & Push Wake-Up (LSP Client, FCM, Background Claim) | **Ready to Start** |
-| **Phase 4** | Offline Voice Layer & UX Polish (Sherpa-ONNX, Hausa/English TTS, Audit) | **Not Started** |
 
 ---
 
