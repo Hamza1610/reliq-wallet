@@ -1,0 +1,20 @@
+[package]
+name = "reliq_native"
+version = "0.1.0"
+edition = "2021"
+description = "Native Rust LDK & BDK engine for Reliq Lightning Wallet"
+
+[lib]
+name = "reliq_native"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+bip39 = { version = "2.1", features = ["rand"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand = "0.8"
+libc = "0.2"
+thiserror = "1.0"
+
+[dev-dependencies]
+tempfile = "3.8"
