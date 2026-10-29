@@ -5,7 +5,10 @@ import '../../../core/utils/formatters.dart';
 import '../../../data/ldk/ldk_models.dart';
 import '../../../data/push/push_models.dart';
 import '../../../data/storage/payment_history_service.dart';
+import '../../providers/currency_provider.dart';
+import '../../providers/nearby_provider.dart';
 import '../../providers/payment_claim_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../providers/tts_provider.dart';
 import '../../providers/wallet_providers.dart';
 import '../../widgets/reliq_button.dart';
@@ -51,6 +54,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final walletState = ref.watch(walletProvider);
     final walletNotifier = ref.read(walletProvider.notifier);
     final activeClaims = ref.watch(paymentClaimProvider);
+    final currencyState = ref.watch(currencyProvider);
+    final nearbyConfirmations = ref.watch(nearbyConfirmProvider);
+    final themeMode = ref.watch(themeProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -85,6 +91,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              themeMode == ThemeMode.dark
+                  ? Icons.light_mode_outlined
+                  : Icons.dark_mode_outlined,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
+            tooltip: 'Toggle Theme',
+            onPressed: () {
+              ref.read(themeProvider.notifier).toggleTheme();
+            },
+          ),
           IconButton(
             icon: Icon(
               walletState.isVoiceEnabled
@@ -234,6 +253,77 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
 
+            // Active Nearby Confirm Banners
+            if (nearbyConfirmations.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Column(
+                  children: nearbyConfirmations.map((payload) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.lightningGold.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.lightningGold.withOpacity(0.4),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.bluetooth_connected_rounded,
+                            size: 18,
+                            color: AppColors.lightningGold,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Nearby Payment Incoming (Bluetooth)',
+                                  style: TextStyle(
+                                    color: AppColors.lightningGold,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  currencyState.isNgn && currencyState.ngnRatePerSat != null
+                                      ? '${Formatters.formatNgn(payload.amountSats * currencyState.ngnRatePerSat!)} (${Formatters.formatSats(payload.amountSats)}) • Pending settlement'
+                                      : '${Formatters.formatSats(payload.amountSats)} • Pending settlement',
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              ref
+                                  .read(nearbyConfirmProvider.notifier)
+                                  .dismissConfirmation(payload.paymentHash);
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.all(4.0),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 14,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+
             // Top Section: Hero Balance & Quick Voice Readout
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
@@ -269,27 +359,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Balance',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.2,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                currencyState.isNgn ? 'Account Balance' : 'Balance',
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.volume_up_outlined,
+                                size: 14,
+                                color: AppColors.textMuted,
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.volume_up_outlined,
-                            size: 14,
-                            color: AppColors.textMuted,
+                          // Currency toggle pill: [ ₦ NGN | ⚡ SATS ]
+                          InkWell(
+                            onTap: () {
+                              ref.read(currencyProvider.notifier).toggleMode();
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceElevated,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    currencyState.isNgn ? '₦ NGN' : '⚡ SATS',
+                                    style: const TextStyle(
+                                      color: AppColors.lightningGold,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.sync_alt_rounded,
+                                    size: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        Formatters.formatSats(walletState.balance.totalSats),
+                        currencyState.isNgn && currencyState.ngnRatePerSat != null
+                            ? Formatters.formatNgn(walletState.balance.totalSats * currencyState.ngnRatePerSat!)
+                            : Formatters.formatSats(walletState.balance.totalSats),
                         style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 38,
@@ -301,6 +432,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const SizedBox(height: 6),
                       Row(
                         children: [
+                          if (currencyState.isNgn && currencyState.ngnRatePerSat != null) ...[
+                            Text(
+                              '≈ ${Formatters.formatSats(walletState.balance.totalSats)}',
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                          ],
                           Text(
                             '⚡ ${Formatters.formatSats(walletState.balance.lightningSats)}',
                             style: const TextStyle(

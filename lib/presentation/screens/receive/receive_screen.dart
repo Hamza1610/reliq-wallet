@@ -446,6 +446,27 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen>
                 ? null
                 : () => _copyToClipboard(_onchainAddress!, 'Bitcoin Address'),
           ),
+          const SizedBox(height: 12),
+          ReliqButton(
+            label: 'Fund Wallet (Faucet +50,000 sats)',
+            icon: Icons.electric_bolt_rounded,
+            variant: ReliqButtonVariant.secondary,
+            onTap: () async {
+              await ref.read(walletProvider.notifier).fundWallet(
+                amountSats: 50000,
+                isOnchain: true,
+                note: 'Regtest Faucet Deposit',
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Funded +50,000 sats to on-chain balance!'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              }
+            },
+          ),
         ],
       ),
     );

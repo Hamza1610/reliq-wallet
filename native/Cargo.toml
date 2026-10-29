@@ -15,6 +15,7 @@ serde_json = "1.0"
 rand = "0.8"
 libc = "0.2"
 thiserror = "1.0"
+bitcoin = { version = "0.32", default-features = false, features = ["std", "rand-std"] }
 
 [dev-dependencies]
 tempfile = "3.8"

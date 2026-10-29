@@ -15,6 +15,8 @@ class SecureStorageService {
   static const _keyVoiceEnabled = 'reliq_pref_voice_enabled';
   static const _keyNetwork = 'reliq_pref_network';
   static const _keyIsBackedUp = 'reliq_wallet_is_backed_up';
+  static const _keyFundedLightningSats = 'reliq_wallet_funded_lightning_sats';
+  static const _keyFundedOnchainSats = 'reliq_wallet_funded_onchain_sats';
 
   SecureStorageService({FlutterSecureStorage? storage})
       : _storage = storage ??
@@ -112,15 +114,31 @@ class SecureStorageService {
     await _safeWrite(_keyVoiceEnabled, enabled.toString());
   }
 
-  /// Retrieves the selected Bitcoin network. Defaults to Signet.
+  /// Retrieves the selected Bitcoin network. Defaults to Regtest.
   Future<NetworkType> getNetwork() async {
     final net = await _safeRead(_keyNetwork);
-    if (net == null) return NetworkType.signet;
+    if (net == null) return NetworkType.regtest;
     return NetworkType.fromString(net);
   }
 
   /// Saves the selected Bitcoin network.
   Future<void> setNetwork(NetworkType network) async {
     await _safeWrite(_keyNetwork, network.name);
+  }
+
+  /// Gets persistent funded balance
+  Future<({int lightningSats, int onchainSats})> getFundedBalance() async {
+    final lnStr = await _safeRead(_keyFundedLightningSats);
+    final ocStr = await _safeRead(_keyFundedOnchainSats);
+    return (
+      lightningSats: int.tryParse(lnStr ?? '0') ?? 0,
+      onchainSats: int.tryParse(ocStr ?? '0') ?? 0,
+    );
+  }
+
+  /// Saves persistent funded balance
+  Future<void> setFundedBalance({required int lightningSats, required int onchainSats}) async {
+    await _safeWrite(_keyFundedLightningSats, lightningSats.toString());
+    await _safeWrite(_keyFundedOnchainSats, onchainSats.toString());
   }
 }

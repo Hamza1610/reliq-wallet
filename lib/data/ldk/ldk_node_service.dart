@@ -35,6 +35,14 @@ typedef _ReceivePaymentDart = Pointer<Utf8> Function(
 typedef _SendPaymentNative = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>);
 typedef _SendPaymentDart = Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>);
 
+typedef _SendOnchainNative = Pointer<Utf8> Function(
+    Pointer<Void>, Pointer<Utf8>, Uint64, Uint32);
+typedef _SendOnchainDart = Pointer<Utf8> Function(
+    Pointer<Void>, Pointer<Utf8>, int, int);
+
+typedef _FundNodeNative = Pointer<Utf8> Function(Pointer<Void>, Uint64, Bool);
+typedef _FundNodeDart = Pointer<Utf8> Function(Pointer<Void>, int, bool);
+
 typedef _DecodePaymentNative = Pointer<Utf8> Function(Pointer<Utf8>);
 typedef _DecodePaymentDart = Pointer<Utf8> Function(Pointer<Utf8>);
 
@@ -58,6 +66,8 @@ class LdkNodeService {
   late final _NewAddressDart _newOnchainAddress;
   late final _ReceivePaymentDart _receivePayment;
   late final _SendPaymentDart _sendPayment;
+  late final _SendOnchainDart _sendOnchainPayment;
+  late final _FundNodeDart _fundNodeBalance;
   late final _DecodePaymentDart _decodePaymentRequest;
   late final _NodeFreeDart _nodeFree;
   late final _FreeStringDart _freeString;
@@ -132,6 +142,12 @@ class LdkNodeService {
     _sendPayment = _lib
         .lookupFunction<_SendPaymentNative, _SendPaymentDart>(
             'send_payment');
+    _sendOnchainPayment = _lib
+        .lookupFunction<_SendOnchainNative, _SendOnchainDart>(
+            'send_onchain_payment');
+    _fundNodeBalance = _lib
+        .lookupFunction<_FundNodeNative, _FundNodeDart>(
+            'fund_node_balance');
     _decodePaymentRequest = _lib
         .lookupFunction<_DecodePaymentNative, _DecodePaymentDart>(
             'decode_payment_request');
@@ -263,6 +279,38 @@ class LdkNodeService {
       }
     } finally {
       calloc.free(cInvoice);
+    }
+  }
+
+  /// Sends an on-chain Bitcoin transaction to a recipient address.
+  Future<PaymentResult> sendOnchainPayment({
+    required String address,
+    required int amountSats,
+    int feeRateSatPerVb = 1,
+  }) async {
+    if (!isInitialized) throw StateError('Node not initialized');
+    final cAddress = address.trim().toNativeUtf8();
+    try {
+      final ptr = _sendOnchainPayment(_nodeHandle!, cAddress, amountSats, feeRateSatPerVb);
+      if (ptr == nullptr) return PaymentResult.failed('Native call returned null pointer');
+      try {
+        final jsonStr = ptr.toDartString();
+        final Map<String, dynamic> data = jsonDecode(jsonStr);
+        return PaymentResult.fromJson(data);
+      } finally {
+        _freeString(ptr);
+      }
+    } finally {
+      calloc.free(cAddress);
+    }
+  }
+
+  /// Funds the node's balance directly (Regtest test faucet).
+  void fundNodeBalance({required int amountSats, bool isOnchain = true}) {
+    if (!isInitialized) return;
+    final ptr = _fundNodeBalance(_nodeHandle!, amountSats, isOnchain);
+    if (ptr != nullptr) {
+      _freeString(ptr);
     }
   }
 

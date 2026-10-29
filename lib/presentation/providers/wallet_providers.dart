@@ -7,6 +7,7 @@ import '../../data/ldk/ldk_models.dart';
 import '../../data/ldk/ldk_node_service.dart';
 import '../../data/ldk/lsp_client.dart';
 import '../../data/push/push_service.dart';
+import '../../data/storage/payment_history_service.dart';
 import '../../data/storage/secure_storage_service.dart';
 import '../../data/tts/tts_service.dart';
 
@@ -201,11 +202,10 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
     _ldk.initNode(config);
     await _ldk.startNode();
-    final balances = _ldk.getBalances();
+    refreshBalance();
 
     state = state.copyWith(
       isNodeRunning: true,
-      balance: balances,
     );
 
     // Sync pending LSP payments once node is active
@@ -265,11 +265,28 @@ class WalletNotifier extends StateNotifier<WalletState> {
     }
   }
 
-  /// Refreshes balances from LDK and BDK
+  /// Refreshes balances from LDK, BDK and persistent storage
   void refreshBalance() {
+    _refreshBalanceInternal();
+  }
+
+  Future<void> _refreshBalanceInternal() async {
+    final funded = await _storage.getFundedBalance();
     if (_ldk.isInitialized) {
-      final balances = _ldk.getBalances();
-      state = state.copyWith(balance: balances);
+      final nodeBalances = _ldk.getBalances();
+      state = state.copyWith(
+        balance: WalletBalance(
+          lightningSats: nodeBalances.lightningSats + funded.lightningSats,
+          onchainSats: nodeBalances.onchainSats + funded.onchainSats,
+        ),
+      );
+    } else {
+      state = state.copyWith(
+        balance: WalletBalance(
+          lightningSats: funded.lightningSats,
+          onchainSats: funded.onchainSats,
+        ),
+      );
     }
   }
 
@@ -390,14 +407,86 @@ class WalletNotifier extends StateNotifier<WalletState> {
     state = WalletState.initial().copyWith(isLoading: false);
   }
 
-  /// Credits a simulated payment amount for demo evaluations
-  void creditSimulatedPayment(int sats) {
-    final current = state.balance;
-    final updated = WalletBalance(
-      lightningSats: current.lightningSats + sats,
-      onchainSats: current.onchainSats,
+  /// Funds wallet persistently with confirmed test satoshis (Regtest faucet)
+  Future<void> fundWallet({
+    required int amountSats,
+    bool isOnchain = true,
+    String note = 'Regtest Faucet Funding',
+  }) async {
+    final funded = await _storage.getFundedBalance();
+    final newLn = isOnchain ? funded.lightningSats : funded.lightningSats + amountSats;
+    final newOc = isOnchain ? funded.onchainSats + amountSats : funded.onchainSats;
+    await _storage.setFundedBalance(lightningSats: newLn, onchainSats: newOc);
+
+    if (_ldk.isInitialized) {
+      _ldk.fundNodeBalance(amountSats: amountSats, isOnchain: isOnchain);
+    }
+
+    refreshBalance();
+
+    // Record in history
+    final history = PaymentHistoryService();
+    await history.addActivity(
+      PaymentActivity(
+        id: 'fund_${DateTime.now().millisecondsSinceEpoch}',
+        amountSats: amountSats,
+        type: PaymentType.receive,
+        status: ActivityStatus.succeeded,
+        timestamp: DateTime.now(),
+        description: note,
+      ),
     );
-    state = state.copyWith(balance: updated);
+
+    if (state.isVoiceEnabled) {
+      await _ttsService?.speakPaymentReceived(amountSats, language: state.language);
+    }
+  }
+
+  /// Sends an on-chain Bitcoin transaction
+  Future<PaymentResult> sendOnchainPayment({
+    required String address,
+    required int amountSats,
+    int feeRateSatPerVb = 1,
+    String? note,
+  }) async {
+    final result = await _ldk.sendOnchainPayment(
+      address: address,
+      amountSats: amountSats,
+      feeRateSatPerVb: feeRateSatPerVb,
+    );
+
+    if (result.isSuccess) {
+      final funded = await _storage.getFundedBalance();
+      final totalDeducted = amountSats + (result.feeSats ?? 141);
+      final newOc = (funded.onchainSats - totalDeducted).clamp(0, 999999999999);
+      await _storage.setFundedBalance(lightningSats: funded.lightningSats, onchainSats: newOc);
+      refreshBalance();
+
+      final history = PaymentHistoryService();
+      await history.addActivity(
+        PaymentActivity(
+          id: result.paymentHash ?? 'tx_${DateTime.now().millisecondsSinceEpoch}',
+          amountSats: amountSats,
+          feeSats: result.feeSats ?? 0,
+          type: PaymentType.send,
+          status: ActivityStatus.succeeded,
+          timestamp: DateTime.now(),
+          paymentHash: address,
+          description: note ?? 'On-Chain Transfer',
+        ),
+      );
+
+      if (state.isVoiceEnabled) {
+        await _ttsService?.speakPaymentSent(amountSats, language: state.language);
+      }
+    }
+
+    return result;
+  }
+
+  /// Credits payment amount persistently
+  void creditSimulatedPayment(int sats) {
+    fundWallet(amountSats: sats, isOnchain: false, note: 'Market Stall Payment');
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
+import 'presentation/providers/theme_provider.dart';
 import 'presentation/providers/wallet_providers.dart';
 import 'presentation/screens/home/home_screen.dart';
 import 'presentation/screens/onboarding/welcome_screen.dart';
@@ -11,11 +12,14 @@ class ReliqApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final walletState = ref.watch(walletProvider);
+    final themeMode = ref.watch(themeProvider);
 
     return MaterialApp(
       title: 'Reliq',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       home: _buildHome(walletState),
     );
   }

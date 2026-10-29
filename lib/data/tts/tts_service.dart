@@ -22,7 +22,8 @@ class FlutterTtsEngine implements TtsEngine {
   Future<void> _ensureConfigured() async {
     if (_isConfigured) return;
     try {
-      await _flutterTts.setSpeechRate(0.85);
+      // 0.48 on Android provides a natural, intelligible, human speaking cadence
+      await _flutterTts.setSpeechRate(0.48);
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0);
       _isConfigured = true;
@@ -151,6 +152,14 @@ class TtsService {
     if (!isVoiceEnabled) return;
     _speakEventsController.add(prompt);
     await _engine.speak(prompt, language: effectiveLang);
+  }
+
+  /// Speaks an arbitrary announcement (e.g. for Bluetooth Nearby confirmation).
+  Future<void> speakCustom(String text, {String? language}) async {
+    final effectiveLang = language ?? this.language;
+    if (!isVoiceEnabled) return;
+    _speakEventsController.add(text);
+    await _engine.speak(text, language: effectiveLang);
   }
 
   /// Speaks confirmation when an inbound payment is received.

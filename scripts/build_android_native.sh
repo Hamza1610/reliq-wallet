@@ -19,3 +19,4 @@ cd "$(dirname "$0")/../native"
 cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../android/app/src/main/jniLibs build --release
 
 echo "Successfully built and copied libreliq_native.so to android/app/src/main/jniLibs!"
+

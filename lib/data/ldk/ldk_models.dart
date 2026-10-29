@@ -12,7 +12,7 @@ enum NetworkType {
   static NetworkType fromString(String val) {
     return NetworkType.values.firstWhere(
       (e) => e.name.toLowerCase() == val.toLowerCase(),
-      orElse: () => NetworkType.signet,
+      orElse: () => NetworkType.regtest,
     );
   }
 }
@@ -123,7 +123,7 @@ class DecodedInvoice {
       description: json['description'] as String? ?? 'Reliq Payment',
       paymentHash: json['payment_hash'] as String?,
       expirySecs: json['expiry_secs'] as int? ?? 3600,
-      network: json['network'] as String? ?? 'signet',
+      network: json['network'] as String? ?? 'regtest',
       error: json['error'] as String?,
     );
   }

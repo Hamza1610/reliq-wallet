@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../providers/tts_provider.dart';
 import '../../providers/wallet_providers.dart';
 import '../../widgets/reliq_button.dart';
+import 'onchain_confirmation_modal.dart';
 import 'payment_confirmation_modal.dart';
 
 class SendScreen extends ConsumerStatefulWidget {
@@ -59,12 +60,51 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   Future<void> _handleInvoice(String invoice) async {
+    final trimmed = invoice.trim();
+    if (trimmed.isEmpty) return;
+
     setState(() {
       _isProcessing = true;
     });
 
+    final isOnchain = trimmed.startsWith('bcrt1') ||
+        trimmed.startsWith('tb1') ||
+        trimmed.startsWith('bc1') ||
+        trimmed.startsWith('1') ||
+        trimmed.startsWith('3');
+
+    if (isOnchain) {
+      if (mounted) {
+        final result = await OnchainConfirmationModal.show(
+          context,
+          address: trimmed,
+        );
+        if (mounted) {
+          setState(() {
+            _isProcessing = false;
+          });
+          if (result != null && result.isSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.check_circle_outline, color: AppColors.success),
+                    SizedBox(width: 8),
+                    Text('On-chain payment broadcast successfully'),
+                  ],
+                ),
+                backgroundColor: AppColors.surfaceElevated,
+              ),
+            );
+            Navigator.pop(context);
+          }
+        }
+      }
+      return;
+    }
+
     final ldk = ref.read(ldkNodeServiceProvider);
-    final decoded = ldk.decodeInvoice(invoice);
+    final decoded = ldk.decodeInvoice(trimmed);
 
     if (!decoded.isValid) {
       if (mounted) {
@@ -280,7 +320,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                     controller: _invoiceController,
                     style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
                     decoration: InputDecoration(
-                      hintText: 'lnbc... or lntb...',
+                      hintText: 'bcrt1... or lnbcrt...',
                       hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                       filled: true,
                       fillColor: AppColors.background,
