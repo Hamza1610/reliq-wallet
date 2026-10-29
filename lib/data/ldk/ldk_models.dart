@@ -191,3 +191,43 @@ class PaymentActivity {
     );
   }
 }
+
+/// An inbound Lightning payment pending LSP liquidity / claim processing.
+///
+/// Used during Phase 3 (Intermittent Connectivity & Push Wake-Up) to track
+/// received payments that are awaiting inbound liquidity provisioning and
+/// HTLC claim after wake-up / background settlement.
+class PendingInboundPayment {
+  final String paymentHash;
+  final int amountSats;
+  final String description;
+  final DateTime createdAt;
+  final bool isClaimed;
+
+  const PendingInboundPayment({
+    required this.paymentHash,
+    required this.amountSats,
+    required this.description,
+    required this.createdAt,
+    required this.isClaimed,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'payment_hash': paymentHash,
+        'amount_sats': amountSats,
+        'description': description,
+        'created_at': createdAt.toIso8601String(),
+        'is_claimed': isClaimed,
+      };
+
+  factory PendingInboundPayment.fromJson(Map<String, dynamic> json) {
+    return PendingInboundPayment(
+      paymentHash: json['payment_hash'] as String? ?? '',
+      amountSats: json['amount_sats'] as int? ?? 0,
+      description: json['description'] as String? ?? 'Payment',
+      createdAt:
+          DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+      isClaimed: json['is_claimed'] as bool? ?? false,
+    );
+  }
+}
