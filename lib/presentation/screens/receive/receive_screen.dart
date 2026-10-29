@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../providers/wallet_providers.dart';
+import '../../widgets/reliq_button.dart';
 
 class ReceiveScreen extends ConsumerStatefulWidget {
   const ReceiveScreen({super.key});
@@ -13,7 +14,8 @@ class ReceiveScreen extends ConsumerStatefulWidget {
   ConsumerState<ReceiveScreen> createState() => _ReceiveScreenState();
 }
 
-class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTickerProviderStateMixin {
+class _ReceiveScreenState extends ConsumerState<ReceiveScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
@@ -59,28 +61,27 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
       _isGenerating = true;
     });
 
-    final sats = amountSats ?? int.tryParse(_amountController.text) ?? 1000;
-    final desc = _descController.text.trim().isEmpty ? 'Reliq Payment' : _descController.text.trim();
+    final amt = amountSats ?? int.tryParse(_amountController.text) ?? 1000;
+    final desc = _descController.text.trim();
 
     try {
-      String inv;
+      String invoice;
       if (_requestInboundLiquidity) {
-        inv = ref.read(walletProvider.notifier).createInboundInvoice(
-          amountSats: sats,
-          description: desc,
-          inboundLiquiditySats: _inboundLiquiditySats,
-        );
+        invoice = ref.read(walletProvider.notifier).createInboundInvoice(
+              amountSats: amt,
+              description: desc.isEmpty ? 'Reliq Payment' : desc,
+              inboundLiquiditySats: _inboundLiquiditySats,
+            );
       } else {
         final ldk = ref.read(ldkNodeServiceProvider);
-        inv = ldk.createInvoice(
-          amountSats: sats,
-          description: desc,
-          expirySecs: 3600,
+        invoice = ldk.createInvoice(
+          amountSats: amt,
+          description: desc.isEmpty ? 'Reliq Payment' : desc,
         );
       }
+
       setState(() {
-        _currentInvoice = inv;
-        _amountController.text = sats.toString();
+        _currentInvoice = invoice;
         _isGenerating = false;
       });
     } catch (e) {
@@ -88,27 +89,20 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
         _isGenerating = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to generate invoice: $e'),
-          backgroundColor: AppColors.error,
-        ),
+        SnackBar(content: Text('Failed to generate invoice: $e')),
       );
     }
   }
 
-  void _copyToClipboard(String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
+  void _copyToClipboard(String data, String label) {
+    Clipboard.setData(ClipboardData(text: data));
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: AppColors.success),
-            const SizedBox(width: 10),
-            Text('$label copied to clipboard!'),
-          ],
-        ),
-        backgroundColor: AppColors.surfaceElevated,
+        content: Text('$label copied to clipboard'),
         duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -116,17 +110,20 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Receive Bitcoin'),
+        title: const Text('Receive'),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppColors.lightningGold,
-          labelColor: AppColors.lightningGold,
+          indicatorColor: AppColors.textPrimary,
+          indicatorWeight: 2,
+          dividerColor: AppColors.borderSubtle,
+          labelColor: AppColors.textPrimary,
           unselectedLabelColor: AppColors.textSecondary,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           tabs: const [
-            Tab(text: 'Lightning (Instant)'),
-            Tab(text: 'On-Chain (BDK)'),
+            Tab(text: 'Lightning'),
+            Tab(text: 'On-Chain'),
           ],
         ),
       ),
@@ -142,40 +139,33 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
 
   Widget _buildLightningTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // QR Code Card
+          // QR Code Display
           Center(
             child: InkWell(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(20),
               onTap: () {
-                final sats = int.tryParse(_amountController.text) ?? 1000;
-                ref.read(ttsServiceProvider).speakInvoiceCreated(
-                  sats,
-                  ref.read(walletProvider).language,
-                );
+                final amt = int.tryParse(_amountController.text) ?? 1000;
+                ref.read(ttsServiceProvider).speakInvoiceCreated(amt);
               },
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.receiveGreen.withOpacity(0.15),
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: _isGenerating || _currentInvoice == null
                     ? const SizedBox(
                         width: 200,
                         height: 200,
                         child: Center(
-                          child: CircularProgressIndicator(color: Colors.black),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
                         ),
                       )
                     : QrImageView(
@@ -187,15 +177,15 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Truncated invoice + Copy & Speak button
+          // Truncated invoice + Copy row
           if (_currentInvoice != null)
             InkWell(
               onTap: () => _copyToClipboard(_currentInvoice!, 'Lightning Invoice'),
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
@@ -203,47 +193,33 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.bolt, color: AppColors.lightningGold, size: 20),
-                    const SizedBox(width: 8),
+                    const Icon(Icons.bolt, color: AppColors.lightningGold, size: 18),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         Formatters.truncateAddress(_currentInvoice!, start: 12, end: 12),
                         style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                    IconButton(
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(4),
-                      icon: const Icon(Icons.volume_up, color: AppColors.voiceAmber, size: 20),
-                      onPressed: () {
-                        final sats = int.tryParse(_amountController.text) ?? 1000;
-                        ref.read(ttsServiceProvider).speakInvoiceCreated(
-                          sats,
-                          ref.read(walletProvider).language,
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.copy_rounded, color: AppColors.lightningGold, size: 20),
+                    const Icon(Icons.copy_rounded, color: AppColors.textSecondary, size: 18),
                   ],
                 ),
               ),
             ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
           // Quick Amount Selection Chips
           const Text(
-            'SELECT AMOUNT (SATS)',
+            'Amount',
             style: TextStyle(
               color: AppColors.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 10),
@@ -254,15 +230,17 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
               final isSelected = _amountController.text == amount.toString();
               return ActionChip(
                 label: Text('+${Formatters.formatSats(amount)}'),
-                backgroundColor: isSelected ? AppColors.lightningGold : AppColors.surface,
+                backgroundColor:
+                    isSelected ? AppColors.textPrimary : AppColors.surface,
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.black : Colors.white,
-                  fontWeight: FontWeight.bold,
+                  color: isSelected ? AppColors.background : AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
                 side: BorderSide(
-                  color: isSelected ? AppColors.lightningGold : AppColors.border,
+                  color: isSelected ? AppColors.textPrimary : AppColors.border,
                 ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 onPressed: () {
                   _amountController.text = amount.toString();
                   _generateLightningInvoice(amountSats: amount);
@@ -271,140 +249,120 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
             }).toList(),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
-          // Custom amount & note entry
-          TextField(
-            controller: _amountController,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-            decoration: InputDecoration(
-              labelText: 'Custom Amount (sats)',
-              labelStyle: const TextStyle(color: AppColors.textSecondary),
-              filled: true,
-              fillColor: AppColors.surface,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.refresh, color: AppColors.lightningGold),
-                onPressed: () => _generateLightningInvoice(),
-              ),
-            ),
-            onSubmitted: (_) => _generateLightningInvoice(),
-          ),
-
-          const SizedBox(height: 12),
-
-          TextField(
-            controller: _descController,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              labelText: 'Payment Note / Item Name (Optional)',
-              labelStyle: const TextStyle(color: AppColors.textSecondary),
-              hintText: 'e.g. Tomatoes, Bag of rice',
-              hintStyle: TextStyle(color: AppColors.textMuted.withOpacity(0.5)),
-              filled: true,
-              fillColor: AppColors.surface,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-            onSubmitted: (_) => _generateLightningInvoice(),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Phase 3: LSP Inbound Liquidity Provisioning Card
+          // LSP Inbound Liquidity Provisioning (LSPS2)
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _requestInboundLiquidity
                     ? AppColors.lightningGold.withOpacity(0.5)
                     : AppColors.border,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.bolt, color: AppColors.lightningGold, size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          'LSP Inbound Liquidity',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
+                const Icon(Icons.bolt, color: AppColors.lightningGold, size: 20),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'LSP Inbound Liquidity (LSPS2)',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
-                    ),
-                    Switch.adaptive(
-                      value: _requestInboundLiquidity,
-                      activeColor: AppColors.lightningGold,
-                      onChanged: (val) {
-                        setState(() {
-                          _requestInboundLiquidity = val;
-                        });
-                        _generateLightningInvoice();
-                      },
-                    ),
-                  ],
-                ),
-                if (_requestInboundLiquidity) ...[
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Provisions a Just-In-Time channel so you can receive even with 0 channels.',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    children: [10000, 25000, 50000].map((liq) {
-                      final isSelected = _inboundLiquiditySats == liq;
-                      return ChoiceChip(
-                        label: Text('+${Formatters.formatSats(liq)} capacity'),
-                        selected: isSelected,
-                        selectedColor: AppColors.lightningGold,
-                        backgroundColor: AppColors.surfaceElevated,
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.black : Colors.white,
+                      ),
+                      Text(
+                        'Provisions channel if you lack inbound capacity',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
                           fontSize: 11,
-                          fontWeight: FontWeight.bold,
                         ),
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _inboundLiquiditySats = liq;
-                            });
-                            _generateLightningInvoice();
-                          }
-                        },
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+                Switch(
+                  value: _requestInboundLiquidity,
+                  activeColor: AppColors.lightningGold,
+                  onChanged: (val) {
+                    setState(() {
+                      _requestInboundLiquidity = val;
+                    });
+                    _generateLightningInvoice();
+                  },
+                ),
               ],
             ),
           ),
 
           const SizedBox(height: 18),
 
-          ElevatedButton.icon(
-            onPressed: () {
-              if (_currentInvoice != null) {
-                _copyToClipboard(_currentInvoice!, 'Lightning Invoice');
-              }
-            },
-            icon: const Icon(Icons.copy_rounded, color: Colors.black),
-            label: const Text('Copy Invoice'),
+          // Custom amount & note entry
+          TextField(
+            controller: _amountController,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              labelText: 'Custom Amount (sats)',
+              labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              filled: true,
+              fillColor: AppColors.surface,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.textPrimary),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _descController,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              labelText: 'Note (optional)',
+              labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              filled: true,
+              fillColor: AppColors.surface,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.textPrimary),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Update invoice button
+          ReliqButton(
+            label: 'Update Invoice',
+            icon: Icons.refresh_rounded,
+            variant: ReliqButtonVariant.secondary,
+            isLoading: _isGenerating,
+            onTap: () => _generateLightningInvoice(),
           ),
         ],
       ),
@@ -417,52 +375,24 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.activityBlue.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.activityBlue.withOpacity(0.4)),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.info_outline, color: AppColors.activityBlue, size: 24),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'On-chain deposits settle via Bitcoin miners and fund your BDK wallet directly.',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // On-Chain QR
+          // On-Chain Address QR
           Center(
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.activityBlue.withOpacity(0.15),
-                    blurRadius: 20,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(20),
               ),
               child: _onchainAddress == null
                   ? const SizedBox(
                       width: 200,
                       height: 200,
-                      child: Center(child: CircularProgressIndicator(color: Colors.black)),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      ),
                     )
                   : QrImageView(
                       data: _onchainAddress!,
@@ -474,52 +404,47 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
           ),
           const SizedBox(height: 20),
 
+          // Full onchain address display
           if (_onchainAddress != null)
-            InkWell(
-              onTap: () => _copyToClipboard(_onchainAddress!, 'On-Chain Address'),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.account_balance_wallet_outlined,
-                        color: AppColors.activityBlue, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _onchainAddress!,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Deposit Address',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
-                    const Icon(Icons.copy_rounded, color: AppColors.activityBlue, size: 20),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 6),
+                  SelectableText(
+                    _onchainAddress!,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 13,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
               ),
             ),
+          const SizedBox(height: 16),
 
-          const SizedBox(height: 24),
-
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.activityBlue,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              if (_onchainAddress != null) {
-                _copyToClipboard(_onchainAddress!, 'On-Chain Address');
-              }
-            },
-            icon: const Icon(Icons.copy_rounded, color: Colors.white),
-            label: const Text('Copy On-Chain Address'),
+          ReliqButton(
+            label: 'Copy Address',
+            icon: Icons.copy_rounded,
+            variant: ReliqButtonVariant.primary,
+            onTap: _onchainAddress == null
+                ? null
+                : () => _copyToClipboard(_onchainAddress!, 'Bitcoin Address'),
           ),
         ],
       ),

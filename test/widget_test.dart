@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reliq/app.dart';
 import 'package:reliq/data/ldk/ldk_models.dart';
 import 'package:reliq/presentation/providers/wallet_providers.dart';
@@ -16,7 +15,7 @@ void main() {
                   isLoading: false,
                   hasWallet: false,
                   isNodeRunning: false,
-                  balance: const WalletBalance(lightningSats: 0, onchainSats: 0),
+                  balance: WalletBalance.zero,
                   network: NetworkType.signet,
                   isVoiceEnabled: true,
                   language: 'en',
@@ -30,12 +29,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Reliq'), findsOneWidget);
-    expect(find.text('Self-Custodial Lightning for Everyday Reliability'), findsOneWidget);
+    expect(find.text('Self-custodial Lightning for everyday reliability'), findsOneWidget);
     expect(find.text('Create New Wallet'), findsOneWidget);
     expect(find.text('Restore Existing Wallet'), findsOneWidget);
   });
 
-  testWidgets('ReliqApp displays Home Screen with 4 action blocks when wallet exists',
+  testWidgets('ReliqApp displays Home Screen with action buttons when wallet exists',
       (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -60,11 +59,9 @@ void main() {
 
     expect(find.text('Reliq'), findsOneWidget);
     expect(find.text('20,000 sats'), findsOneWidget);
-    expect(find.text('RECEIVE'), findsOneWidget);
-    expect(find.text('SEND'), findsOneWidget);
-    expect(find.text('ACTIVITY'), findsOneWidget);
-    expect(find.text('VOICE'), findsOneWidget);
-    expect(find.text('LDK + BDK Engine Online'), findsOneWidget);
+    expect(find.text('Receive'), findsOneWidget);
+    expect(find.text('Send'), findsOneWidget);
+    expect(find.text('Recent Activity'), findsOneWidget);
   });
 }
 
@@ -123,4 +120,12 @@ class MockWalletNotifier extends StateNotifier<WalletState>
 
   @override
   Future<void> speakPaymentSent(int sats) async {}
+
+  @override
+  Future<void> resetWallet() async {
+    state = WalletState.initial().copyWith(isLoading: false);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

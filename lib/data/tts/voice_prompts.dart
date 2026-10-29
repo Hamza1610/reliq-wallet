@@ -82,6 +82,8 @@ String numberToHausaWords(int n) {
 
 /// Offline voice synthesis prompts in English and Hausa.
 class VoicePrompts {
+  VoicePrompts._();
+
   static String numberToHausa(int number) => numberToHausaWords(number);
 
   /// Speaks current wallet balance:
@@ -94,24 +96,73 @@ class VoicePrompts {
     return 'Your balance is ${Formatters.formatSats(sats)}';
   }
 
+  /// Named argument variant for clean architecture callers
+  static String balancePrompt({
+    required int amountSats,
+    required String language,
+  }) {
+    return balance(amountSats, language);
+  }
+
   /// Speaks payment received announcement:
   /// EN: "Payment received: 5,000 sats"
   /// HA: "An karbi satoshi dubu biyar"
-  static String paymentReceived(int sats, String language) {
+  static String paymentReceived(int sats, String language, {String? note}) {
     if (language.toLowerCase() == 'ha') {
+      if (note != null && note.trim().isNotEmpty) {
+        return 'An karbi satoshi ${numberToHausa(sats)} don $note';
+      }
       return 'An karbi satoshi ${numberToHausa(sats)}';
     }
+    if (note != null && note.trim().isNotEmpty) {
+      return 'Payment received: ${Formatters.formatSats(sats)} for $note';
+    }
     return 'Payment received: ${Formatters.formatSats(sats)}';
+  }
+
+  /// Named argument variant for clean architecture callers
+  static String paymentReceivedPrompt({
+    required int amountSats,
+    required String language,
+    String? note,
+  }) {
+    return paymentReceived(amountSats, language, note: note);
   }
 
   /// Speaks payment sent announcement:
   /// EN: "Payment sent: 1,500 sats"
   /// HA: "An tura satoshi dubu daya da dari biyar"
-  static String paymentSent(int sats, String language) {
+  static String paymentSent(int sats, String language, {String? note}) {
     if (language.toLowerCase() == 'ha') {
+      if (note != null && note.trim().isNotEmpty) {
+        return 'An biya satoshi ${numberToHausa(sats)} don $note';
+      }
       return 'An tura satoshi ${numberToHausa(sats)}';
     }
+    if (note != null && note.trim().isNotEmpty) {
+      return 'Payment sent: ${Formatters.formatSats(sats)} for $note';
+    }
     return 'Payment sent: ${Formatters.formatSats(sats)}';
+  }
+
+  /// Named argument variant for clean architecture callers
+  static String paymentSentPrompt({
+    required int amountSats,
+    required String language,
+    String? note,
+  }) {
+    return paymentSent(amountSats, language, note: note);
+  }
+
+  /// Speaks offline held claim settlement announcement:
+  static String offlineClaimedPrompt({
+    required int amountSats,
+    required String language,
+  }) {
+    if (language.toLowerCase() == 'ha') {
+      return 'An karbi satoshi ${numberToHausa(amountSats)} wanda aka ajiye a baya';
+    }
+    return 'Offline payment of ${Formatters.formatSats(amountSats)} has been claimed';
   }
 
   /// Speaks language changed notification:
@@ -153,5 +204,12 @@ class VoicePrompts {
     }
     return 'Payment failed: $reason';
   }
-}
 
+  /// Error prompt named variant
+  static String errorPrompt({
+    required String reason,
+    required String language,
+  }) {
+    return paymentFailed(reason, language);
+  }
+}

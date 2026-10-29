@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../providers/wallet_providers.dart';
+import '../../widgets/reliq_button.dart';
 import '../home/home_screen.dart';
 
 class RestoreWalletScreen extends ConsumerStatefulWidget {
@@ -43,7 +44,8 @@ class _RestoreWalletScreenState extends ConsumerState<RestoreWalletScreen> {
     if (words.length != 12 && words.length != 24) {
       setState(() {
         _isValid = false;
-        _errorMessage = 'Phrase must contain exactly 12 or 24 words (currently: ${words.length})';
+        _errorMessage =
+            'Phrase must contain exactly 12 or 24 words (currently: ${words.length})';
       });
       return;
     }
@@ -51,7 +53,8 @@ class _RestoreWalletScreenState extends ConsumerState<RestoreWalletScreen> {
     final isValidBip39 = ref.read(walletProvider.notifier).validateMnemonic(text);
     setState(() {
       _isValid = isValidBip39;
-      _errorMessage = isValidBip39 ? null : 'Words do not form a valid BIP39 checksum';
+      _errorMessage =
+          isValidBip39 ? null : 'Words do not form a valid BIP39 checksum';
     });
   }
 
@@ -88,108 +91,70 @@ class _RestoreWalletScreenState extends ConsumerState<RestoreWalletScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Restore Wallet'),
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Enter Recovery Seed',
+                'Enter your 12 or 24-word recovery phrase, separated by single spaces.',
                 style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Type or paste your 12 or 24-word recovery phrase separated by spaces.',
-                style: TextStyle(
-                  fontSize: 14,
                   color: AppColors.textSecondary,
+                  fontSize: 13,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               TextField(
                 controller: _controller,
-                maxLines: 5,
+                maxLines: 4,
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontFamily: 'monospace',
                 ),
                 decoration: InputDecoration(
-                  hintText: 'e.g. apple banana cat dog elephant fox giraffe hawk iguana jaguar kangaroo lemon',
-                  hintStyle: TextStyle(color: AppColors.textMuted.withOpacity(0.6)),
+                  hintText: 'word1 word2 word3 ...',
+                  hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                   filled: true,
                   fillColor: AppColors.surface,
+                  contentPadding: const EdgeInsets.all(14),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: AppColors.border),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(
-                      color: _isValid
-                          ? AppColors.success
-                          : (_errorMessage != null ? AppColors.error : AppColors.border),
-                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(
-                      color: _isValid ? AppColors.success : AppColors.lightningGold,
-                      width: 2,
-                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.textPrimary),
                   ),
                 ),
               ),
               if (_errorMessage != null) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
                   _errorMessage!,
                   style: const TextStyle(
                     color: AppColors.error,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
-                ),
-              ] else if (_isValid) ...[
-                const SizedBox(height: 10),
-                const Row(
-                  children: [
-                    Icon(Icons.check_circle, color: AppColors.success, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Valid BIP39 Recovery Phrase',
-                      style: TextStyle(
-                        color: AppColors.success,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
                 ),
               ],
               const Spacer(),
-              ElevatedButton(
-                onPressed: (_isValid && !_isRestoring) ? _handleRestore : null,
-                child: _isRestoring
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.black,
-                        ),
-                      )
-                    : const Text('Restore Wallet'),
+              ReliqButton(
+                label: 'Restore Wallet',
+                variant: ReliqButtonVariant.primary,
+                isLoading: _isRestoring,
+                onTap: (_isValid && !_isRestoring) ? _handleRestore : null,
               ),
             ],
           ),

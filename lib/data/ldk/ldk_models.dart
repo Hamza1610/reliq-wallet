@@ -164,6 +164,8 @@ class PaymentActivity {
     this.paymentHash,
   });
 
+  bool get isReceived => type == PaymentType.receive;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'type': type.name,

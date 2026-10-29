@@ -2,54 +2,75 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../data/tts/voice_prompts.dart';
+import '../../../data/ldk/ldk_models.dart';
+import '../../../data/storage/payment_history_service.dart';
+import '../../providers/payment_claim_provider.dart';
+import '../../providers/tts_provider.dart';
 import '../../providers/wallet_providers.dart';
-import '../../widgets/large_action_button.dart';
+import '../../widgets/reliq_button.dart';
 import '../activity/activity_screen.dart';
 import '../receive/receive_screen.dart';
 import '../send/send_screen.dart';
 import '../settings/settings_screen.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final PaymentHistoryService _historyService = PaymentHistoryService();
+  List<PaymentActivity> _recentActivity = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecent();
+  }
+
+  Future<void> _loadRecent() async {
+    final list = await _historyService.getActivities();
+    if (mounted) {
+      setState(() {
+        _recentActivity = list.take(5).toList();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final walletState = ref.watch(walletProvider);
     final walletNotifier = ref.read(walletProvider.notifier);
+    final activeClaims = ref.watch(paymentClaimProvider);
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.lightningGold.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.bolt,
-                color: AppColors.lightningGold,
-                size: 20,
+            const Text(
+              'Reliq',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
               ),
             ),
-            const SizedBox(width: 10),
-            const Text('Reliq'),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                 color: AppColors.surfaceElevated,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 walletState.network.name.toUpperCase(),
                 style: const TextStyle(
-                  color: AppColors.lightningGold,
+                  color: AppColors.textSecondary,
                   fontSize: 10,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -58,7 +79,39 @@ class HomeScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppColors.textSecondary),
+            icon: Icon(
+              walletState.isVoiceEnabled
+                  ? Icons.volume_up_outlined
+                  : Icons.volume_off_outlined,
+              color: walletState.isVoiceEnabled
+                  ? AppColors.lightningGold
+                  : AppColors.textSecondary,
+              size: 20,
+            ),
+            tooltip: 'Toggle Voice Feedback',
+            onPressed: () {
+              walletNotifier.toggleVoice();
+              final isEnabled = !walletState.isVoiceEnabled;
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    isEnabled
+                        ? 'Voice feedback enabled (${walletState.language.toUpperCase()})'
+                        : 'Voice feedback muted',
+                  ),
+                  duration: const Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.settings_outlined,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
             onPressed: () {
               Navigator.push(
                 context,
@@ -70,324 +123,437 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Phase 3: LSP Sync & Background Claim Banner
-              if (walletState.lspSyncStatus != null || walletState.isSyncingLsp) ...[
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: walletState.isSyncingLsp
-                        ? AppColors.surfaceElevated
-                        : AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: walletState.isSyncingLsp
-                          ? AppColors.lightningGold.withOpacity(0.4)
-                          : AppColors.border,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      if (walletState.isSyncingLsp)
-                        const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.lightningGold,
-                          ),
-                        )
-                      else
-                        const Icon(
-                          Icons.cloud_done,
-                          color: AppColors.success,
-                          size: 16,
-                        ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          walletState.isSyncingLsp
-                              ? 'Syncing with LSP in background...'
-                              : (walletState.lspSyncStatus ?? 'LSP Connected'),
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Active Intermittent Claim Banner
+            if (activeClaims.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Column(
+                  children: activeClaims.map((claim) {
+                    final isClaiming = claim.isClaiming || claim.isPending;
+                    final isSuccess = claim.isSucceeded;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSuccess
+                            ? AppColors.success.withOpacity(0.12)
+                            : AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSuccess
+                              ? AppColors.success.withOpacity(0.3)
+                              : AppColors.border,
                         ),
                       ),
-                      if (!walletState.isSyncingLsp)
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: const Icon(Icons.refresh, size: 16, color: AppColors.lightningGold),
-                          onPressed: () => walletNotifier.syncLspPendingPayments(),
-                        ),
-                    ],
-                  ),
+                      child: Row(
+                        children: [
+                          if (isClaiming)
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.lightningGold,
+                              ),
+                            )
+                          else if (isSuccess)
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              size: 16,
+                              color: AppColors.success,
+                            )
+                          else
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              size: 16,
+                              color: AppColors.error,
+                            ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isClaiming
+                                      ? 'Claiming Offline Payment...'
+                                      : isSuccess
+                                          ? 'Payment Claimed'
+                                          : 'Claim Failed',
+                                  style: TextStyle(
+                                    color: isSuccess
+                                        ? AppColors.success
+                                        : AppColors.textPrimary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  '${Formatters.formatSats(claim.amountSats)} · ${claim.description}',
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!isClaiming)
+                            GestureDetector(
+                              onTap: () {
+                                ref
+                                    .read(paymentClaimProvider.notifier)
+                                    .dismissClaim(claim.paymentHash);
+                                _loadRecent();
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.all(4.0),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 14,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                 ),
-              ],
+              ),
+            ],
 
-              // Balance Display Area (Tap to speak)
-              InkWell(
+            // Top Section: Hero Balance & Quick Voice Readout
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+              child: InkWell(
                 onTap: () {
-                  walletNotifier.speakCurrentBalance();
-                  final text = VoicePrompts.balance(
-                    walletState.balance.totalSats,
-                    walletState.language,
-                  );
+                  final tts = ref.read(ttsServiceProvider);
+                  tts.speakBalance(walletState.balance.totalSats);
+
+                  final text = walletState.language == 'ha'
+                      ? 'Kudaden ku sun kai sats ${Formatters.formatSats(walletState.balance.totalSats)}'
+                      : 'Your balance is ${Formatters.formatSats(walletState.balance.totalSats)}';
+                  ScaffoldMessenger.of(context).clearSnackBars();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Row(
                         children: [
-                          const Icon(Icons.volume_up, color: AppColors.lightningGold),
+                          const Icon(Icons.volume_up,
+                              color: AppColors.lightningGold, size: 20),
                           const SizedBox(width: 12),
                           Expanded(child: Text(text)),
                         ],
                       ),
                       backgroundColor: AppColors.surfaceElevated,
                       duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
                     ),
                   );
                 },
-                borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1E232E), Color(0xFF151922)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: AppColors.lightningGold.withOpacity(0.35),
-                      width: 1.5,
-                    ),
-                  ),
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'TOTAL BALANCE',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        Formatters.formatSats(walletState.balance.totalSats),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 34,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
-                            Icons.volume_up_outlined,
-                            size: 16,
-                            color: AppColors.lightningGold,
+                          const Text(
+                            'Balance',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.2,
+                            ),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            '(tap to hear)',
-                            style: TextStyle(
-                              color: AppColors.lightningGold.withOpacity(0.9),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          const Icon(
+                            Icons.volume_up_outlined,
+                            size: 14,
+                            color: AppColors.textMuted,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 6),
+                      Text(
+                        Formatters.formatSats(walletState.balance.totalSats),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 38,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -1.0,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildMiniBalance(
-                            'Lightning',
-                            Formatters.formatSats(walletState.balance.lightningSats),
-                            AppColors.lightningGold,
+                          Text(
+                            '⚡ ${Formatters.formatSats(walletState.balance.lightningSats)}',
+                            style: const TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                          const SizedBox(width: 16),
-                          Container(width: 1, height: 16, color: AppColors.border),
-                          const SizedBox(width: 16),
-                          _buildMiniBalance(
-                            'On-Chain (BDK)',
-                            Formatters.formatSats(walletState.balance.onchainSats),
-                            AppColors.activityBlue,
-                          ),
+                          if (walletState.balance.onchainSats > 0) ...[
+                            const SizedBox(width: 12),
+                            Text(
+                              '⛓ ${Formatters.formatSats(walletState.balance.onchainSats)}',
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],
                   ),
                 ),
               ),
+            ),
 
-              const SizedBox(height: 24),
-
-              // The 4 Action Blocks (2x2 Grid)
-              Expanded(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: LargeActionButton(
-                              title: 'RECEIVE',
-                              subtitle: 'Generate QR',
-                              icon: Icons.qr_code_2_rounded,
-                              accentColor: AppColors.receiveGreen,
-                              surfaceColor: AppColors.receiveGreenSurface,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const ReceiveScreen(),
-                                  ),
-                                );
-                              },
-                            ),
+            // Primary Action Row: Receive & Send
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ReliqButton(
+                      label: 'Receive',
+                      icon: Icons.arrow_downward_rounded,
+                      variant: ReliqButtonVariant.primary,
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ReceiveScreen(),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: LargeActionButton(
-                              title: 'SEND',
-                              subtitle: 'Scan or Paste',
-                              icon: Icons.arrow_outward_rounded,
-                              accentColor: AppColors.sendIndigo,
-                              surfaceColor: AppColors.sendIndigoSurface,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const SendScreen(),
-                                  ),
-                                );
-                              },
+                        );
+                        _loadRecent();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ReliqButton(
+                      label: 'Send',
+                      icon: Icons.arrow_upward_rounded,
+                      variant: ReliqButtonVariant.secondary,
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SendScreen(),
+                          ),
+                        );
+                        _loadRecent();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Activity Section Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Recent Activity',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ActivityScreen(),
+                        ),
+                      );
+                      _loadRecent();
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: Text(
+                        'View All',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Activity List or Clean Empty State
+            Expanded(
+              child: _recentActivity.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.receipt_long_outlined,
+                            size: 32,
+                            color: AppColors.textMuted.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'No transactions yet',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: LargeActionButton(
-                              title: 'ACTIVITY',
-                              subtitle: 'History',
-                              icon: Icons.history_rounded,
-                              accentColor: AppColors.activityBlue,
-                              surfaceColor: AppColors.activityBlueSurface,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const ActivityScreen(),
-                                  ),
-                                );
-                              },
-                            ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                      itemCount: _recentActivity.length,
+                      separatorBuilder: (context, index) =>
+                          const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final tx = _recentActivity[index];
+                        final isReceived = tx.isReceived;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.surfaceElevated,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  isReceived
+                                      ? Icons.arrow_downward_rounded
+                                      : Icons.arrow_upward_rounded,
+                                  size: 16,
+                                  color: isReceived
+                                      ? AppColors.success
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isReceived ? 'Received' : 'Sent',
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      tx.description.isEmpty
+                                          ? (isReceived ? 'Invoice paid' : 'Payment')
+                                          : tx.description,
+                                      style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 12,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                '${isReceived ? '+' : '-'} ${Formatters.formatSats(tx.amountSats)}',
+                                style: TextStyle(
+                                  color: isReceived
+                                      ? AppColors.success
+                                      : AppColors.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: LargeActionButton(
-                              title: 'VOICE',
-                              subtitle: walletState.isVoiceEnabled
-                                  ? 'ACTIVE (${walletState.language.toUpperCase()})'
-                                  : 'MUTED',
-                              icon: walletState.isVoiceEnabled
-                                  ? Icons.volume_up_rounded
-                                  : Icons.volume_off_rounded,
-                              accentColor: AppColors.voiceAmber,
-                              surfaceColor: AppColors.voiceAmberSurface,
-                              onTap: () {
-                                walletNotifier.toggleVoice();
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  ],
-                ),
-              ),
+            ),
 
-              // Node status footer
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: walletState.isNodeRunning ? AppColors.success : AppColors.warning,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      walletState.isNodeRunning
-                          ? 'LDK + BDK Engine Online'
-                          : 'Node Syncing...',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+            // Bottom Minimal Status Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: AppColors.borderSubtle)),
               ),
-            ],
-          ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: walletState.isNodeRunning
+                              ? AppColors.success
+                              : AppColors.warning,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        walletState.isNodeRunning ? 'LDK Node active' : 'Syncing...',
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Self-Custodial',
+                    style: TextStyle(
+                      color: AppColors.textMuted.withOpacity(0.8),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildMiniBalance(String label, String value, Color color) {
-    return Row(
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          '$label: ',
-          style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
     );
   }
 }

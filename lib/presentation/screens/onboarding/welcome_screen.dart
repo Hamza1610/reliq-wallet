@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../widgets/reliq_button.dart';
 import 'create_wallet_screen.dart';
 import 'restore_wallet_screen.dart';
 
@@ -9,71 +10,65 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Spacer(),
-              Center(
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: AppColors.lightningGold.withOpacity(0.15),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.lightningGold, width: 2.5),
-                  ),
-                  child: const Icon(
-                    Icons.bolt,
-                    size: 64,
-                    color: AppColors.lightningGold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 28),
+              const Spacer(flex: 2),
+
+              // Minimal Brand Mark
               const Text(
                 'Reliq',
-                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -1.2,
                   color: AppColors.textPrimary,
-                  letterSpacing: -1.0,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               const Text(
-                'Self-Custodial Lightning for Everyday Reliability',
-                textAlign: TextAlign.center,
+                'Self-custodial Lightning for everyday reliability',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
+                  height: 1.45,
                 ),
               ),
+
               const SizedBox(height: 36),
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  children: [
-                    _buildFeatureItem(Icons.lock_outline, '100% Self-Custodial (Your Keys)'),
-                    const SizedBox(height: 12),
-                    _buildFeatureItem(Icons.wifi_off_outlined, 'Built for Intermittent Connectivity'),
-                    const SizedBox(height: 12),
-                    _buildFeatureItem(Icons.record_voice_over_outlined, 'Offline Voice in English & Hausa'),
-                  ],
-                ),
+
+              // Clean minimalist features list
+              _buildFeatureRow(
+                icon: Icons.shield_outlined,
+                title: 'Self-custodial',
+                subtitle: 'Keys stay encrypted on your device. Only you control your money.',
               ),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: () {
+              const SizedBox(height: 20),
+              _buildFeatureRow(
+                icon: Icons.offline_bolt_outlined,
+                title: 'Offline receive ready',
+                subtitle: 'Accepts inbound payments and settles when your connection resumes.',
+              ),
+              const SizedBox(height: 20),
+              _buildFeatureRow(
+                icon: Icons.record_voice_over_outlined,
+                title: 'Voice accessibility',
+                subtitle: 'Clear audio confirmations in Hausa and English for trades.',
+              ),
+
+              const Spacer(flex: 3),
+
+              // Action buttons
+              ReliqButton(
+                label: 'Create New Wallet',
+                icon: Icons.arrow_forward_rounded,
+                variant: ReliqButtonVariant.primary,
+                onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -81,11 +76,12 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                   );
                 },
-                child: const Text('Create New Wallet'),
               ),
-              const SizedBox(height: 14),
-              OutlinedButton(
-                onPressed: () {
+              const SizedBox(height: 12),
+              ReliqButton(
+                label: 'Restore Existing Wallet',
+                variant: ReliqButtonVariant.secondary,
+                onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -93,7 +89,6 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                   );
                 },
-                child: const Text('Restore Existing Wallet'),
               ),
               const SizedBox(height: 12),
             ],
@@ -103,19 +98,52 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureItem(IconData icon, String text) {
+  Widget _buildFeatureRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: AppColors.lightningGold, size: 22),
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.borderSubtle),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: AppColors.lightningGold,
+          ),
+        ),
         const SizedBox(width: 14),
         Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12.5,
+                  height: 1.35,
+                ),
+              ),
+            ],
           ),
         ),
       ],

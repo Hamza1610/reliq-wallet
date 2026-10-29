@@ -10,6 +10,12 @@ import '../../data/push/push_service.dart';
 import '../../data/storage/secure_storage_service.dart';
 import '../../data/tts/tts_service.dart';
 
+import 'payment_claim_provider.dart';
+import 'tts_provider.dart';
+
+export 'payment_claim_provider.dart';
+export 'tts_provider.dart';
+
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
   return SecureStorageService();
 });
@@ -25,17 +31,6 @@ final ldkNodeServiceProvider = Provider<LdkNodeService>((ref) {
 final lspClientProvider = Provider<LspClient>((ref) {
   final ldk = ref.watch(ldkNodeServiceProvider);
   return ldk.createLspClient();
-});
-
-final pushServiceProvider = Provider<PushService>((ref) {
-  final lsp = ref.watch(lspClientProvider);
-  return PushService(lspClient: lsp);
-});
-
-final ttsServiceProvider = Provider<TtsService>((ref) {
-  final service = TtsService();
-  service.init();
-  return service;
 });
 
 class WalletState {
@@ -139,7 +134,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
           final newTotal = state.balance.totalSats;
           final diff = newTotal > oldTotal ? newTotal - oldTotal : 0;
           if (diff > 0 && state.isVoiceEnabled) {
-            _ttsService?.speakPaymentReceived(diff, state.language);
+            _ttsService?.speakPaymentReceived(diff, language: state.language);
           }
           state = state.copyWith(
             lspSyncStatus: 'Payment claimed via background sync!',
@@ -358,13 +353,13 @@ class WalletNotifier extends StateNotifier<WalletState> {
   /// Speaks payment received announcement
   Future<void> speakPaymentReceived(int sats) async {
     if (!state.isVoiceEnabled) return;
-    await _ttsService?.speakPaymentReceived(sats, state.language);
+    await _ttsService?.speakPaymentReceived(sats, language: state.language);
   }
 
   /// Speaks payment sent announcement
   Future<void> speakPaymentSent(int sats) async {
     if (!state.isVoiceEnabled) return;
-    await _ttsService?.speakPaymentSent(sats, state.language);
+    await _ttsService?.speakPaymentSent(sats, language: state.language);
   }
 
   /// Toggles voice speech synthesis
@@ -385,9 +380,18 @@ class WalletNotifier extends StateNotifier<WalletState> {
       await _ttsService?.speakLanguageChanged(lang);
     }
   }
+
+  /// Resets the wallet and removes stored keys
+  Future<void> resetWallet() async {
+    if (_ldk.isInitialized) {
+      _ldk.stopNode();
+    }
+    await _storage.deleteWallet();
+    state = WalletState.initial().copyWith(isLoading: false);
+  }
 }
 
-final walletProvider =
+final StateNotifierProvider<WalletNotifier, WalletState> walletProvider =
     StateNotifierProvider<WalletNotifier, WalletState>((ref) {
   final storage = ref.watch(secureStorageProvider);
   final ldk = ref.watch(ldkNodeServiceProvider);

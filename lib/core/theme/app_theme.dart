@@ -1,39 +1,38 @@
 import 'package:flutter/material.dart';
 
-/// Design tokens and high-contrast theme tailored for market stalls and outdoor conditions.
+/// Refined, calm, high-contrast design tokens.
+/// Built intentionally for extreme outdoor legibility and minimal cognitive load.
 class AppColors {
-  // Backgrounds
-  static const Color background = Color(0xFF0F1117);
-  static const Color surface = Color(0xFF1A1F2C);
-  static const Color surfaceElevated = Color(0xFF242B3D);
-  static const Color border = Color(0xFF333E54);
+  // Backgrounds - Deep neutral charcoal (no artificial blue/purple tint)
+  static const Color background = Color(0xFF0C0D10);
+  static const Color surface = Color(0xFF14161C);
+  static const Color surfaceElevated = Color(0xFF1C1F27);
+  static const Color border = Color(0xFF262A36);
+  static const Color borderSubtle = Color(0xFF1D212A);
 
-  // Lightning & Bitcoin accents
-  static const Color lightningGold = Color(0xFFF7931A);
-  static const Color lightningAmber = Color(0xFFFFB020);
+  // Lightning Accent - Warm Bitcoin Amber (used purposefully for primary affordances)
+  static const Color lightningGold = Color(0xFFF59E0B);
+  static const Color lightningAmber = Color(0xFFD97706);
 
-  // Action Tile Color Themes (High contrast, instantly recognizable)
-  static const Color receiveGreen = Color(0xFF10B981);
-  static const Color receiveGreenSurface = Color(0xFF064E3B);
-
-  static const Color sendIndigo = Color(0xFF6366F1);
-  static const Color sendIndigoSurface = Color(0xFF312E81);
-
-  static const Color activityBlue = Color(0xFF3B82F6);
-  static const Color activityBlueSurface = Color(0xFF1E3A8A);
-
-  static const Color voiceAmber = Color(0xFFF59E0B);
-  static const Color voiceAmberSurface = Color(0xFF78350F);
-
-  // Text
-  static const Color textPrimary = Color(0xFFFFFFFF);
+  // Typography Scale Colors
+  static const Color textPrimary = Color(0xFFF8FAFC);
   static const Color textSecondary = Color(0xFF94A3B8);
   static const Color textMuted = Color(0xFF64748B);
 
-  // Status
-  static const Color success = Color(0xFF22C55E);
-  static const Color error = Color(0xFFEF4444);
+  // Status & Financial Indicators (Restrained, subtle)
+  static const Color success = Color(0xFF10B981); // Inbound / Confirmed
+  static const Color error = Color(0xFFEF4444);   // Outbound / Failure
   static const Color warning = Color(0xFFF59E0B);
+
+  // Backward compatibility aliases for existing screens prior to full refactor
+  static const Color receiveGreen = Color(0xFF10B981);
+  static const Color receiveGreenSurface = Color(0xFF14161C);
+  static const Color sendIndigo = Color(0xFFF8FAFC);
+  static const Color sendIndigoSurface = Color(0xFF1C1F27);
+  static const Color activityBlue = Color(0xFFF8FAFC);
+  static const Color activityBlueSurface = Color(0xFF1C1F27);
+  static const Color voiceAmber = Color(0xFFF59E0B);
+  static const Color voiceAmberSurface = Color(0xFF1C1F27);
 }
 
 class AppTheme {
@@ -46,7 +45,7 @@ class AppTheme {
       primaryColor: AppColors.lightningGold,
       colorScheme: const ColorScheme.dark(
         primary: AppColors.lightningGold,
-        secondary: AppColors.receiveGreen,
+        secondary: AppColors.textPrimary,
         surface: AppColors.surface,
         error: AppColors.error,
         onPrimary: Colors.black,
@@ -55,34 +54,42 @@ class AppTheme {
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.background,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          letterSpacing: -0.5,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.3,
         ),
+        iconTheme: IconThemeData(color: AppColors.textPrimary, size: 22),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.borderSubtle,
+        thickness: 1,
+        space: 1,
       ),
       cardTheme: CardThemeData(
         color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppColors.border, width: 1.5),
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.border, width: 1.0),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           minimumSize: const Size.fromHeight(minTouchTarget),
-          backgroundColor: AppColors.lightningGold,
-          foregroundColor: Colors.black,
+          backgroundColor: AppColors.textPrimary,
+          foregroundColor: AppColors.background,
           elevation: 0,
           textStyle: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(28),
           ),
         ),
       ),
@@ -90,13 +97,14 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(minTouchTarget),
           foregroundColor: AppColors.textPrimary,
-          side: const BorderSide(color: AppColors.border, width: 1.5),
+          side: const BorderSide(color: AppColors.border, width: 1.0),
           textStyle: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(28),
           ),
         ),
       ),

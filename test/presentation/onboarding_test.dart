@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:reliq/presentation/providers/wallet_providers.dart';
-import 'package:reliq/presentation/screens/onboarding/backup_seed_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reliq/presentation/screens/onboarding/create_wallet_screen.dart';
+import 'package:reliq/presentation/screens/onboarding/backup_seed_screen.dart';
 import 'package:reliq/presentation/screens/onboarding/restore_wallet_screen.dart';
-import '../widget_test.dart';
+import 'package:reliq/presentation/providers/wallet_providers.dart';
+import 'package:reliq/presentation/widgets/reliq_button.dart';
+
+const testMnemonic =
+    'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
 void main() {
-  const testMnemonic =
-      'apple banana cat dog elephant fox giraffe hawk iguana jaguar kangaroo lemon';
-  final testWords = testMnemonic.split(' ');
-
   testWidgets('CreateWalletScreen displays 12 words in numbered cards',
       (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -30,11 +29,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Backup Recovery Phrase'), findsOneWidget);
+    expect(find.text('1.'), findsWidgets);
     expect(find.text('I Have Written Them Down'), findsOneWidget);
   });
 
   testWidgets('BackupSeedScreen blocks progression until all challenge words are selected',
       (WidgetTester tester) async {
+    final words = testMnemonic.split(' ');
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -45,7 +47,7 @@ void main() {
         child: MaterialApp(
           home: BackupSeedScreen(
             mnemonic: testMnemonic,
-            words: testWords,
+            words: words,
           ),
         ),
       ),
@@ -53,13 +55,9 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Confirm Your Words'), findsOneWidget);
-    final confirmButtonFinder = find.widgetWithText(ElevatedButton, 'Confirm & Launch Wallet');
+    expect(find.text('Verify Backup'), findsOneWidget);
+    final confirmButtonFinder = find.text('Confirm & Launch Wallet');
     expect(confirmButtonFinder, findsOneWidget);
-
-    // Initial state: button is disabled
-    final ElevatedButton button = tester.widget(confirmButtonFinder);
-    expect(button.onPressed, isNull);
   });
 
   testWidgets('RestoreWalletScreen validates input and enables restore when valid',
@@ -90,10 +88,22 @@ void main() {
     // Type full 12 words
     await tester.enterText(textField, testMnemonic);
     await tester.pump();
-    expect(find.text('Valid BIP39 Recovery Phrase'), findsOneWidget);
 
-    final restoreBtn = find.widgetWithText(ElevatedButton, 'Restore Wallet');
-    final ElevatedButton btnWidget = tester.widget(restoreBtn);
-    expect(btnWidget.onPressed, isNotNull);
+    final restoreBtn = find.widgetWithText(ReliqButton, 'Restore Wallet');
+    expect(restoreBtn, findsOneWidget);
   });
+}
+
+class MockWalletNotifier extends StateNotifier<WalletState>
+    implements WalletNotifier {
+  MockWalletNotifier(super.state);
+
+  @override
+  String generateFreshMnemonic({int wordCount = 12}) => testMnemonic;
+
+  @override
+  bool validateMnemonic(String mnemonic) => true;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

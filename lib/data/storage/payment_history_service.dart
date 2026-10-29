@@ -38,4 +38,7 @@ class PaymentHistoryService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyActivities);
   }
+
+  /// Alias for clearActivities
+  Future<void> clear() => clearActivities();
 }

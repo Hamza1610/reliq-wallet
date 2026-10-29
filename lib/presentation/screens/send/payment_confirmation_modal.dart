@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/ldk/ldk_models.dart';
 import '../../providers/wallet_providers.dart';
+import '../../widgets/reliq_button.dart';
 
 class PaymentConfirmationModal extends ConsumerStatefulWidget {
   final String invoice;
@@ -52,7 +53,6 @@ class _PaymentConfirmationModalState
       final result = await ldk.sendPayment(widget.invoice);
 
       if (result.isSuccess) {
-        // Refresh balance immediately
         ref.read(walletProvider.notifier).refreshBalance();
         if (mounted) {
           Navigator.pop(context, result);
@@ -79,56 +79,63 @@ class _PaymentConfirmationModalState
     final hasSufficientBalance = spendableSats >= totalRequiredSats;
 
     return Container(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(top: BorderSide(color: AppColors.border, width: 1.5)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: SafeArea(
+        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Center drag handle
             Center(
               child: Container(
-                width: 48,
-                height: 5,
+                width: 36,
+                height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.border,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 20),
 
+            // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'Confirm Payment',
                   style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.sendIndigoSurface,
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.bolt, color: AppColors.sendIndigo, size: 16),
+                      Icon(Icons.bolt, color: AppColors.lightningGold, size: 14),
                       SizedBox(width: 4),
                       Text(
                         'Lightning',
                         style: TextStyle(
-                          color: AppColors.sendIndigo,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -136,97 +143,107 @@ class _PaymentConfirmationModalState
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // Amount Card
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border),
-              ),
+            // Amount Hero Section
+            Center(
               child: Column(
                 children: [
-                  const Text(
-                    'YOU ARE PAYING',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
+                  Text(
+                    Formatters.formatSats(widget.decoded.amountSats),
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 36,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -1.0,
+                      fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    Formatters.formatSats(widget.decoded.amountSats),
+                    widget.decoded.description.isEmpty
+                        ? 'Lightning Payment'
+                        : widget.decoded.description,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'For: ${widget.decoded.description}',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-            // Fee and Balance Breakdown
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Network Fee Ceiling:', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                Text('+2 sats', style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Spendable Balance:', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                Text(Formatters.formatSats(spendableSats),
-                    style: TextStyle(
-                      color: hasSufficientBalance ? AppColors.textPrimary : AppColors.error,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    )),
-              ],
+            // Breakdown
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Text(
+                        'Max Network Fee',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      ),
+                      Text(
+                        '2 sats',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Available Balance',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      ),
+                      Text(
+                        Formatters.formatSats(spendableSats),
+                        style: TextStyle(
+                          color: hasSufficientBalance
+                              ? AppColors.textPrimary
+                              : AppColors.error,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
 
             if (!hasSufficientBalance) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.error),
+                  color: AppColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                    Icon(Icons.info_outline, color: AppColors.error, size: 16),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Insufficient spendable Lightning balance.',
-                        style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: AppColors.error, fontSize: 12),
                       ),
                     ),
                   ],
@@ -235,31 +252,26 @@ class _PaymentConfirmationModalState
             ],
 
             if (_errorMessage != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Text(
                 _errorMessage!,
-                style: const TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: AppColors.error,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
 
             const SizedBox(height: 24),
 
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.sendIndigo,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: (hasSufficientBalance && !_isProcessing) ? _executePayment : null,
-              child: _isProcessing
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                    )
-                  : const Text('Confirm & Send Now'),
+            ReliqButton(
+              label: 'Confirm & Send',
+              variant: ReliqButtonVariant.primary,
+              isLoading: _isProcessing,
+              onTap: (hasSufficientBalance && !_isProcessing) ? _executePayment : null,
             ),
-            const SizedBox(height: 8),
           ],
         ),
       ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../providers/wallet_providers.dart';
+import '../../widgets/reliq_button.dart';
 import '../home/home_screen.dart';
 
 class BackupSeedScreen extends ConsumerStatefulWidget {
@@ -44,7 +45,6 @@ class _BackupSeedScreenState extends ConsumerState<BackupSeedScreen> {
       final correctWord = widget.words[index];
       final options = <String>{correctWord};
 
-      // Add decoy words from the phrase
       final shuffledOtherWords = List<String>.from(widget.words)..shuffle(rand);
       for (final w in shuffledOtherWords) {
         if (options.length >= 4) break;
@@ -78,26 +78,19 @@ class _BackupSeedScreenState extends ConsumerState<BackupSeedScreen> {
           .confirmBackupAndCreateWallet(widget.mnemonic);
 
       if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
           (route) => false,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to initialize wallet: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
         setState(() {
           _isSubmitting = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to initialize node: $e')),
+        );
       }
     }
   }
@@ -105,47 +98,49 @@ class _BackupSeedScreenState extends ConsumerState<BackupSeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Verify Backup'),
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Confirm Your Words',
+                'Verify words',
                 style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.4,
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               const Text(
-                'Select the correct word corresponding to each position to prove you wrote down your seed.',
+                'Select the corresponding word from your written paper backup.',
                 style: TextStyle(
-                  fontSize: 14,
                   color: AppColors.textSecondary,
+                  fontSize: 13,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               Expanded(
                 child: ListView.separated(
                   itemCount: _challengeIndices.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 20),
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
                   itemBuilder: (context, i) {
                     final targetIndex = _challengeIndices[i];
                     final options = _optionsPerChallenge[targetIndex] ?? [];
                     final selected = _selectedAnswers[targetIndex];
 
                     return Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: selected != null
                               ? (selected == widget.words[targetIndex]
@@ -160,25 +155,36 @@ class _BackupSeedScreenState extends ConsumerState<BackupSeedScreen> {
                           Text(
                             'Word #${targetIndex + 1}',
                             style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.lightningGold,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 12),
                           Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
+                            spacing: 8,
+                            runSpacing: 8,
                             children: options.map((word) {
                               final isSelected = selected == word;
                               return ChoiceChip(
                                 label: Text(word),
                                 selected: isSelected,
-                                selectedColor: AppColors.lightningGold,
-                                backgroundColor: AppColors.surfaceElevated,
+                                selectedColor: AppColors.textPrimary,
+                                backgroundColor: AppColors.background,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? AppColors.textPrimary
+                                        : AppColors.border,
+                                  ),
+                                ),
                                 labelStyle: TextStyle(
-                                  color: isSelected ? Colors.black : Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                  color: isSelected
+                                      ? AppColors.background
+                                      : AppColors.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                 ),
                                 onSelected: (val) {
                                   setState(() {
@@ -199,20 +205,13 @@ class _BackupSeedScreenState extends ConsumerState<BackupSeedScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: (_isVerificationComplete && !_isSubmitting)
+              ReliqButton(
+                label: 'Confirm & Launch Wallet',
+                variant: ReliqButtonVariant.primary,
+                isLoading: _isSubmitting,
+                onTap: (_isVerificationComplete && !_isSubmitting)
                     ? _handleConfirm
                     : null,
-                child: _isSubmitting
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.black,
-                        ),
-                      )
-                    : const Text('Confirm & Launch Wallet'),
               ),
             ],
           ),
