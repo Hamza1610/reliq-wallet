@@ -1,0 +1,59 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+Thumbs.db
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IDE & Editors
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Flutter / Dart / Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Linux Desktop Ephemeral
+linux/flutter/ephemeral/
+**/ephemeral/
+
+# Android build artifacts
+.gradle/
+**/android/.gradle/
+**/android/app/build/
+**/android/build/
+/android/app/debug
+/android/app/profile
+/android/app/release
+local.properties
+**/local.properties
+/android/local.properties
+
+# Rust build artifacts
+target/
+**/target/
+**/*.rs.bk
+
+# Symbolication & Obfuscation
+app.*.symbols
+app.*.map.json
+
+# Widget Preview related
+.widget_preview/
