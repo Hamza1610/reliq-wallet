@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/tts/voice_prompts.dart';
 import '../../providers/wallet_providers.dart';
 import '../../widgets/large_action_button.dart';
 import '../activity/activity_screen.dart';
@@ -135,7 +136,11 @@ class HomeScreen extends ConsumerWidget {
               // Balance Display Area (Tap to speak)
               InkWell(
                 onTap: () {
-                  final text = 'Your balance is ${Formatters.formatSats(walletState.balance.totalSats)}';
+                  walletNotifier.speakCurrentBalance();
+                  final text = VoicePrompts.balance(
+                    walletState.balance.totalSats,
+                    walletState.language,
+                  );
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Row(

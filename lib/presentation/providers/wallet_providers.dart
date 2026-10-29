@@ -8,6 +8,7 @@ import '../../data/ldk/ldk_node_service.dart';
 import '../../data/ldk/lsp_client.dart';
 import '../../data/push/push_service.dart';
 import '../../data/storage/secure_storage_service.dart';
+import '../../data/tts/tts_service.dart';
 
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
   return SecureStorageService();
@@ -29,6 +30,12 @@ final lspClientProvider = Provider<LspClient>((ref) {
 final pushServiceProvider = Provider<PushService>((ref) {
   final lsp = ref.watch(lspClientProvider);
   return PushService(lspClient: lsp);
+});
+
+final ttsServiceProvider = Provider<TtsService>((ref) {
+  final service = TtsService();
+  service.init();
+  return service;
 });
 
 class WalletState {
@@ -106,6 +113,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
   final LdkNodeService _ldk;
   final LspClient? _lspClient;
   final PushService? _pushService;
+  final TtsService? _ttsService;
   StreamSubscription<bool>? _claimSub;
 
   WalletNotifier(
@@ -113,8 +121,10 @@ class WalletNotifier extends StateNotifier<WalletState> {
     this._ldk, {
     LspClient? lspClient,
     PushService? pushService,
+    TtsService? ttsService,
   })  : _lspClient = lspClient,
         _pushService = pushService,
+        _ttsService = ttsService,
         super(WalletState.initial()) {
     _initialize();
     _listenToPushClaims();
@@ -124,7 +134,13 @@ class WalletNotifier extends StateNotifier<WalletState> {
     if (_pushService != null) {
       _claimSub = _pushService!.claimEvents.listen((claimed) {
         if (claimed) {
+          final oldTotal = state.balance.totalSats;
           refreshBalance();
+          final newTotal = state.balance.totalSats;
+          final diff = newTotal > oldTotal ? newTotal - oldTotal : 0;
+          if (diff > 0 && state.isVoiceEnabled) {
+            _ttsService?.speakPaymentReceived(diff, state.language);
+          }
           state = state.copyWith(
             lspSyncStatus: 'Payment claimed via background sync!',
           );
@@ -145,6 +161,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
       final network = await _storage.getNetwork();
       final voiceEnabled = await _storage.isVoiceEnabled();
       final language = await _storage.getLanguage();
+
+      _ttsService?.setMuted(!voiceEnabled);
+      _ttsService?.setLanguage(language);
 
       if (hasWallet) {
         final mnemonic = await _storage.getMnemonic();
@@ -330,17 +349,41 @@ class WalletNotifier extends StateNotifier<WalletState> {
     }
   }
 
+  /// Speaks the current wallet balance aloud via offline TTS
+  Future<void> speakCurrentBalance() async {
+    if (!state.isVoiceEnabled) return;
+    await _ttsService?.speakBalance(state.balance.totalSats, state.language);
+  }
+
+  /// Speaks payment received announcement
+  Future<void> speakPaymentReceived(int sats) async {
+    if (!state.isVoiceEnabled) return;
+    await _ttsService?.speakPaymentReceived(sats, state.language);
+  }
+
+  /// Speaks payment sent announcement
+  Future<void> speakPaymentSent(int sats) async {
+    if (!state.isVoiceEnabled) return;
+    await _ttsService?.speakPaymentSent(sats, state.language);
+  }
+
   /// Toggles voice speech synthesis
   Future<void> toggleVoice() async {
     final newVoice = !state.isVoiceEnabled;
     await _storage.setVoiceEnabled(newVoice);
+    _ttsService?.setMuted(!newVoice);
     state = state.copyWith(isVoiceEnabled: newVoice);
+    await _ttsService?.speakVoiceToggled(newVoice, state.language);
   }
 
   /// Changes UI language
   Future<void> setLanguage(String lang) async {
     await _storage.setLanguage(lang);
+    await _ttsService?.setLanguage(lang);
     state = state.copyWith(language: lang);
+    if (state.isVoiceEnabled) {
+      await _ttsService?.speakLanguageChanged(lang);
+    }
   }
 }
 
@@ -350,5 +393,12 @@ final walletProvider =
   final ldk = ref.watch(ldkNodeServiceProvider);
   final lsp = ref.watch(lspClientProvider);
   final push = ref.watch(pushServiceProvider);
-  return WalletNotifier(storage, ldk, lspClient: lsp, pushService: push);
+  final tts = ref.watch(ttsServiceProvider);
+  return WalletNotifier(
+    storage,
+    ldk,
+    lspClient: lsp,
+    pushService: push,
+    ttsService: tts,
+  );
 });

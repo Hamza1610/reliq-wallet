@@ -114,4 +114,13 @@ class MockWalletNotifier extends StateNotifier<WalletState>
 
   @override
   Future<bool> claimPendingInboundPayment(String paymentHash) async => true;
+
+  @override
+  Future<void> speakCurrentBalance() async {}
+
+  @override
+  Future<void> speakPaymentReceived(int sats) async {}
+
+  @override
+  Future<void> speakPaymentSent(int sats) async {}
 }

@@ -75,6 +75,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         });
 
         if (result != null && result.isSuccess) {
+          ref.read(walletProvider.notifier).speakPaymentSent(decoded.amountSats);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(

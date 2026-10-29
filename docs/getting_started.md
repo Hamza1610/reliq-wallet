@@ -117,28 +117,30 @@ flutter build linux --debug
 
 Reliq enforces strict automated testing across both the native Rust engine and the Flutter UI layer.
 
-### 1. Run Flutter Test Suite (Unit & Widget Tests)
-Runs all onboarding tests, payment flows, and Dart FFI bindings:
+### 1. Run Flutter Test Suite (Unit, Voice, LSP & Widget Tests)
+Runs all onboarding tests, payment flows, Dart FFI bindings, Phase 3 LSP sync, and Phase 4 TTS voice prompts:
 ```bash
 flutter test
 ```
-*Expected output: `All tests passed! (12 tests)`*
+*Expected output: `All tests passed! (40 tests)`*
 
-To run a specific test file:
+To run specific test modules:
 ```bash
-flutter test test/presentation/onboarding_test.dart
+flutter test test/data/tts/voice_prompts_test.dart
+flutter test test/data/tts/tts_service_test.dart
+flutter test test/data/ldk/lsp_client_test.dart
+flutter test test/data/push/push_service_test.dart
 flutter test test/presentation/phase2_payment_flow_test.dart
-flutter test test/data/ldk/ldk_node_service_test.dart
 ```
 
 ### 2. Run Native Rust Engine Tests
-Verifies BIP39 mnemonic generation, C-ABI string memory safety, node lifecycle, and invoice decoding:
+Verifies BIP39 mnemonic generation, C-ABI string memory safety, node lifecycle, invoice decoding, and LSPS2 invoice creation:
 ```bash
 cd native
 CARGO_TARGET_DIR=/home/maheer-wsl/.cargo-target/reliq cargo test
 cd ..
 ```
-*Expected output: `5 passed; 0 failed`*
+*Expected output: `6 passed; 0 failed`*
 
 ---
 

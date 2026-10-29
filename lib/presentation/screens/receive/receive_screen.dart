@@ -148,38 +148,48 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
         children: [
           // QR Code Card
           Center(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.receiveGreen.withOpacity(0.15),
-                    blurRadius: 20,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: _isGenerating || _currentInvoice == null
-                  ? const SizedBox(
-                      width: 200,
-                      height: 200,
-                      child: Center(
-                        child: CircularProgressIndicator(color: Colors.black),
-                      ),
-                    )
-                  : QrImageView(
-                      data: _currentInvoice!,
-                      version: QrVersions.auto,
-                      size: 200.0,
-                      backgroundColor: Colors.white,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(24),
+              onTap: () {
+                final sats = int.tryParse(_amountController.text) ?? 1000;
+                ref.read(ttsServiceProvider).speakInvoiceCreated(
+                  sats,
+                  ref.read(walletProvider).language,
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.receiveGreen.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
                     ),
+                  ],
+                ),
+                child: _isGenerating || _currentInvoice == null
+                    ? const SizedBox(
+                        width: 200,
+                        height: 200,
+                        child: Center(
+                          child: CircularProgressIndicator(color: Colors.black),
+                        ),
+                      )
+                    : QrImageView(
+                        data: _currentInvoice!,
+                        version: QrVersions.auto,
+                        size: 200.0,
+                        backgroundColor: Colors.white,
+                      ),
+              ),
             ),
           ),
           const SizedBox(height: 16),
 
-          // Truncated invoice + Copy button
+          // Truncated invoice + Copy & Speak button
           if (_currentInvoice != null)
             InkWell(
               onTap: () => _copyToClipboard(_currentInvoice!, 'Lightning Invoice'),
@@ -205,6 +215,19 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
                         ),
                       ),
                     ),
+                    IconButton(
+                      constraints: const BoxConstraints(),
+                      padding: const EdgeInsets.all(4),
+                      icon: const Icon(Icons.volume_up, color: AppColors.voiceAmber, size: 20),
+                      onPressed: () {
+                        final sats = int.tryParse(_amountController.text) ?? 1000;
+                        ref.read(ttsServiceProvider).speakInvoiceCreated(
+                          sats,
+                          ref.read(walletProvider).language,
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 6),
                     const Icon(Icons.copy_rounded, color: AppColors.lightningGold, size: 20),
                   ],
                 ),
