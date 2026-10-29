@@ -74,6 +74,64 @@ class HomeScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Phase 3: LSP Sync & Background Claim Banner
+              if (walletState.lspSyncStatus != null || walletState.isSyncingLsp) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: walletState.isSyncingLsp
+                        ? AppColors.surfaceElevated
+                        : AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: walletState.isSyncingLsp
+                          ? AppColors.lightningGold.withOpacity(0.4)
+                          : AppColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      if (walletState.isSyncingLsp)
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.lightningGold,
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.cloud_done,
+                          color: AppColors.success,
+                          size: 16,
+                        ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          walletState.isSyncingLsp
+                              ? 'Syncing with LSP in background...'
+                              : (walletState.lspSyncStatus ?? 'LSP Connected'),
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (!walletState.isSyncingLsp)
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.refresh, size: 16, color: AppColors.lightningGold),
+                          onPressed: () => walletNotifier.syncLspPendingPayments(),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+
               // Balance Display Area (Tap to speak)
               InkWell(
                 onTap: () {

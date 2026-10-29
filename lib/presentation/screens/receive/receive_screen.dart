@@ -21,6 +21,8 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
   String? _currentInvoice;
   String? _onchainAddress;
   bool _isGenerating = false;
+  bool _requestInboundLiquidity = false;
+  int _inboundLiquiditySats = 10000;
 
   final List<int> _quickAmounts = [500, 1000, 2500, 5000, 10000];
 
@@ -57,16 +59,25 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
       _isGenerating = true;
     });
 
-    final ldk = ref.read(ldkNodeServiceProvider);
     final sats = amountSats ?? int.tryParse(_amountController.text) ?? 1000;
     final desc = _descController.text.trim().isEmpty ? 'Reliq Payment' : _descController.text.trim();
 
     try {
-      final inv = ldk.createInvoice(
-        amountSats: sats,
-        description: desc,
-        expirySecs: 3600,
-      );
+      String inv;
+      if (_requestInboundLiquidity) {
+        inv = ref.read(walletProvider.notifier).createInboundInvoice(
+          amountSats: sats,
+          description: desc,
+          inboundLiquiditySats: _inboundLiquiditySats,
+        );
+      } else {
+        final ldk = ref.read(ldkNodeServiceProvider);
+        inv = ldk.createInvoice(
+          amountSats: sats,
+          description: desc,
+          expirySecs: 3600,
+        );
+      }
       setState(() {
         _currentInvoice = inv;
         _amountController.text = sats.toString();
@@ -273,6 +284,92 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> with SingleTicker
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             ),
             onSubmitted: (_) => _generateLightningInvoice(),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Phase 3: LSP Inbound Liquidity Provisioning Card
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _requestInboundLiquidity
+                    ? AppColors.lightningGold.withOpacity(0.5)
+                    : AppColors.border,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.bolt, color: AppColors.lightningGold, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'LSP Inbound Liquidity',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Switch.adaptive(
+                      value: _requestInboundLiquidity,
+                      activeColor: AppColors.lightningGold,
+                      onChanged: (val) {
+                        setState(() {
+                          _requestInboundLiquidity = val;
+                        });
+                        _generateLightningInvoice();
+                      },
+                    ),
+                  ],
+                ),
+                if (_requestInboundLiquidity) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Provisions a Just-In-Time channel so you can receive even with 0 channels.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    children: [10000, 25000, 50000].map((liq) {
+                      final isSelected = _inboundLiquiditySats == liq;
+                      return ChoiceChip(
+                        label: Text('+${Formatters.formatSats(liq)} capacity'),
+                        selected: isSelected,
+                        selectedColor: AppColors.lightningGold,
+                        backgroundColor: AppColors.surfaceElevated,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.black : Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _inboundLiquiditySats = liq;
+                            });
+                            _generateLightningInvoice();
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
+            ),
           ),
 
           const SizedBox(height: 18),

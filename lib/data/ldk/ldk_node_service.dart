@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'ldk_models.dart';
+import 'lsp_client.dart';
 
 // Native function typedefs
 typedef _GenerateMnemonicNative = Pointer<Utf8> Function(Uint32);
@@ -66,6 +67,13 @@ class LdkNodeService {
 
   bool get isRunning => _isRunning;
   bool get isInitialized => _nodeHandle != null && _nodeHandle != nullptr;
+  Pointer<Void>? get rawNodeHandle => _nodeHandle;
+  DynamicLibrary get rawLib => _lib;
+
+  /// Creates an LspClient bound to this native node instance
+  LspClient createLspClient() {
+    return LspClient(customLib: _lib, nodeHandle: _nodeHandle);
+  }
 
   LdkNodeService({DynamicLibrary? customLib}) {
     _lib = customLib ?? _loadLibrary();

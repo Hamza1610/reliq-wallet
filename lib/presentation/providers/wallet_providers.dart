@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/constants/network_constants.dart';
 import '../../data/ldk/ldk_models.dart';
 import '../../data/ldk/ldk_node_service.dart';
+import '../../data/ldk/lsp_client.dart';
+import '../../data/push/push_service.dart';
 import '../../data/storage/secure_storage_service.dart';
 
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
@@ -18,6 +21,16 @@ final ldkNodeServiceProvider = Provider<LdkNodeService>((ref) {
   return service;
 });
 
+final lspClientProvider = Provider<LspClient>((ref) {
+  final ldk = ref.watch(ldkNodeServiceProvider);
+  return ldk.createLspClient();
+});
+
+final pushServiceProvider = Provider<PushService>((ref) {
+  final lsp = ref.watch(lspClientProvider);
+  return PushService(lspClient: lsp);
+});
+
 class WalletState {
   final bool isLoading;
   final bool hasWallet;
@@ -26,6 +39,9 @@ class WalletState {
   final NetworkType network;
   final bool isVoiceEnabled;
   final String language;
+  final bool isSyncingLsp;
+  final String? lspSyncStatus;
+  final List<PendingInboundPayment> pendingInboundPayments;
   final String? errorMessage;
 
   const WalletState({
@@ -36,6 +52,9 @@ class WalletState {
     required this.network,
     required this.isVoiceEnabled,
     required this.language,
+    this.isSyncingLsp = false,
+    this.lspSyncStatus,
+    this.pendingInboundPayments = const [],
     this.errorMessage,
   });
 
@@ -47,6 +66,9 @@ class WalletState {
         network: NetworkType.signet,
         isVoiceEnabled: true,
         language: 'en',
+        isSyncingLsp: false,
+        lspSyncStatus: null,
+        pendingInboundPayments: [],
       );
 
   WalletState copyWith({
@@ -57,6 +79,9 @@ class WalletState {
     NetworkType? network,
     bool? isVoiceEnabled,
     String? language,
+    bool? isSyncingLsp,
+    String? lspSyncStatus,
+    List<PendingInboundPayment>? pendingInboundPayments,
     String? errorMessage,
   }) {
     return WalletState(
@@ -67,6 +92,10 @@ class WalletState {
       network: network ?? this.network,
       isVoiceEnabled: isVoiceEnabled ?? this.isVoiceEnabled,
       language: language ?? this.language,
+      isSyncingLsp: isSyncingLsp ?? this.isSyncingLsp,
+      lspSyncStatus: lspSyncStatus,
+      pendingInboundPayments:
+          pendingInboundPayments ?? this.pendingInboundPayments,
       errorMessage: errorMessage,
     );
   }
@@ -75,9 +104,39 @@ class WalletState {
 class WalletNotifier extends StateNotifier<WalletState> {
   final SecureStorageService _storage;
   final LdkNodeService _ldk;
+  final LspClient? _lspClient;
+  final PushService? _pushService;
+  StreamSubscription<bool>? _claimSub;
 
-  WalletNotifier(this._storage, this._ldk) : super(WalletState.initial()) {
+  WalletNotifier(
+    this._storage,
+    this._ldk, {
+    LspClient? lspClient,
+    PushService? pushService,
+  })  : _lspClient = lspClient,
+        _pushService = pushService,
+        super(WalletState.initial()) {
     _initialize();
+    _listenToPushClaims();
+  }
+
+  void _listenToPushClaims() {
+    if (_pushService != null) {
+      _claimSub = _pushService!.claimEvents.listen((claimed) {
+        if (claimed) {
+          refreshBalance();
+          state = state.copyWith(
+            lspSyncStatus: 'Payment claimed via background sync!',
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _claimSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _initialize() async {
@@ -109,7 +168,8 @@ class WalletNotifier extends StateNotifier<WalletState> {
     }
   }
 
-  Future<void> _startNodeWithMnemonic(String mnemonic, NetworkType network) async {
+  Future<void> _startNodeWithMnemonic(
+      String mnemonic, NetworkType network) async {
     final docsDir = await getApplicationDocumentsDirectory();
     final storageDir = '${docsDir.path}/ldk_${network.name}';
     final dir = Directory(storageDir);
@@ -133,6 +193,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
       isNodeRunning: true,
       balance: balances,
     );
+
+    // Sync pending LSP payments once node is active
+    syncLspPendingPayments();
   }
 
   /// Generates a fresh uncommitted mnemonic for backup flow
@@ -196,6 +259,77 @@ class WalletNotifier extends StateNotifier<WalletState> {
     }
   }
 
+  /// Synchronizes with the LSP and updates pending inbound payments
+  Future<void> syncLspPendingPayments() async {
+    if (!_ldk.isInitialized) return;
+    final client = _lspClient ?? _ldk.createLspClient();
+    state = state.copyWith(isSyncingLsp: true);
+    try {
+      final pending = await client.getPendingInboundPayments();
+      state = state.copyWith(
+        isSyncingLsp: false,
+        pendingInboundPayments: pending,
+        lspSyncStatus: pending.isEmpty
+            ? 'LSP Connected • Channel Ready'
+            : '${pending.length} inbound payment(s) pending claim',
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isSyncingLsp: false,
+        lspSyncStatus: 'LSP Sync error: $e',
+      );
+    }
+  }
+
+  /// Creates a BOLT11 invoice backed by provisioned LSP inbound liquidity (Phase 3)
+  String createInboundInvoice({
+    required int amountSats,
+    String? description,
+    int inboundLiquiditySats = 0,
+  }) {
+    if (!_ldk.isInitialized) {
+      throw StateError('Cannot generate invoice before node is initialized');
+    }
+    final client = _lspClient ?? _ldk.createLspClient();
+    return client.createInboundInvoice(
+      amountSats: amountSats,
+      description: description,
+      inboundLiquiditySats: inboundLiquiditySats,
+    );
+  }
+
+  /// Claims a pending inbound HTLC manually or after wake-up
+  Future<bool> claimPendingInboundPayment(String paymentHash) async {
+    final client = _lspClient ?? _ldk.createLspClient();
+    state = state.copyWith(
+      isSyncingLsp: true,
+      lspSyncStatus: 'Claiming payment...',
+    );
+    try {
+      final success = await client.claimInboundPayment(paymentHash);
+      if (success) {
+        refreshBalance();
+        await syncLspPendingPayments();
+        state = state.copyWith(
+          isSyncingLsp: false,
+          lspSyncStatus: 'Payment claimed successfully!',
+        );
+      } else {
+        state = state.copyWith(
+          isSyncingLsp: false,
+          lspSyncStatus: 'Failed to claim payment from LSP',
+        );
+      }
+      return success;
+    } catch (e) {
+      state = state.copyWith(
+        isSyncingLsp: false,
+        lspSyncStatus: 'Claim error: $e',
+      );
+      return false;
+    }
+  }
+
   /// Toggles voice speech synthesis
   Future<void> toggleVoice() async {
     final newVoice = !state.isVoiceEnabled;
@@ -214,5 +348,7 @@ final walletProvider =
     StateNotifierProvider<WalletNotifier, WalletState>((ref) {
   final storage = ref.watch(secureStorageProvider);
   final ldk = ref.watch(ldkNodeServiceProvider);
-  return WalletNotifier(storage, ldk);
+  final lsp = ref.watch(lspClientProvider);
+  final push = ref.watch(pushServiceProvider);
+  return WalletNotifier(storage, ldk, lspClient: lsp, pushService: push);
 });

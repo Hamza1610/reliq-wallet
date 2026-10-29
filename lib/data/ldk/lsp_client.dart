@@ -34,6 +34,9 @@ class LspClient {
 
   Pointer<Void>? _nodeHandle;
 
+  Pointer<Void>? get nodeHandle => _nodeHandle;
+  set nodeHandle(Pointer<Void>? handle) => _nodeHandle = handle;
+
   LspClient({DynamicLibrary? customLib, Pointer<Void>? nodeHandle}) {
     _lib = customLib ?? _loadLibrary();
     _bindFunctions();
@@ -50,7 +53,6 @@ class LspClient {
         'libreliq_native.so',
         './native/lib/libreliq_native.so',
         '../native/lib/libreliq_native.so',
-        '/home/maheer-wsl/.cargo-target/reliq/release/libreliq_native.so',
       ];
       for (final path in searchPaths) {
         if (File(path).existsSync()) {
@@ -101,7 +103,53 @@ class LspClient {
         throw Exception('Failed to create inbound liquidity invoice');
       }
       try {
-        return ptr.toDartString();
+        final raw = ptr.toDartString();
+        if (raw.trim().startsWith('{')) {
+          final Map<String, dynamic> data = jsonDecode(raw);
+          final inv = data['invoice'] as String?;
+          if (inv != null && inv.isNotEmpty) {
+            return inv;
+          }
+        }
+        return raw;
+      } finally {
+        _freeString(ptr);
+      }
+    } finally {
+      calloc.free(cDesc);
+    }
+  }
+
+  /// Creates a BOLT11 invoice with inbound liquidity and returns full metadata details.
+  Map<String, dynamic> createInboundInvoiceDetails({
+    required int amountSats,
+    String? description,
+    int expirySecs = 3600,
+    int inboundLiquiditySats = 0,
+  }) {
+    final nodeHandle = _nodeHandle;
+    if (nodeHandle == null) {
+      throw StateError('LSP client requires a native node handle');
+    }
+    final amountMsat = amountSats * 1000;
+    final cDesc = (description ?? 'Reliq Payment').toNativeUtf8();
+    try {
+      final ptr = _createInboundInvoice(
+          nodeHandle, amountMsat, cDesc, expirySecs, inboundLiquiditySats);
+      if (ptr == nullptr) {
+        throw Exception('Failed to create inbound liquidity invoice');
+      }
+      try {
+        final raw = ptr.toDartString();
+        if (raw.trim().startsWith('{')) {
+          return jsonDecode(raw) as Map<String, dynamic>;
+        }
+        return {
+          'status': 'created',
+          'invoice': raw,
+          'amount_sats': amountSats,
+          'inbound_liquidity_sats': inboundLiquiditySats,
+        };
       } finally {
         _freeString(ptr);
       }

@@ -101,4 +101,17 @@ class MockWalletNotifier extends StateNotifier<WalletState>
   Future<void> setLanguage(String lang) async {
     state = state.copyWith(language: lang);
   }
+
+  @override
+  Future<void> syncLspPendingPayments() async {}
+
+  @override
+  String createInboundInvoice({
+    required int amountSats,
+    String? description,
+    int inboundLiquiditySats = 0,
+  }) => 'lntb${amountSats}u1preliqfakeinvoicetest';
+
+  @override
+  Future<bool> claimPendingInboundPayment(String paymentHash) async => true;
 }
